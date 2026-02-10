@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import '@/styles/globals.css';
 import Navbar from '@/components/interfaces/navbar';
-import { Footer } from '@/components/interfaces/footer';
+import { Toaster } from '@/components/ui/sonner';
 
 const geistSans = Geist({
     variable: '--font-geist-sans',
@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-    title: 'Plantilla Next.JS | Devanthos',
-    description: 'Agrega una descripción atractiva para mejorar el SEO de tu página.',
+    title: 'HorasWork - Control de Horas de Trabajo',
+    description: 'Aplicación para controlar horas de trabajo y horas extras',
 };
 
 export default function RootLayout({
@@ -28,8 +28,8 @@ export default function RootLayout({
         <html lang="es">
             <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
                 <Navbar />
-                {children}
-                <Footer />
+                <main className="min-h-[calc(100vh-4rem)]">{children}</main>
+                <Toaster />
             </body>
         </html>
     );
