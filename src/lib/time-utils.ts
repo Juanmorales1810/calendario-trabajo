@@ -1,0 +1,81 @@
+/**
+ * Parses a time string "HH:MM" into total minutes.
+ */
+export function timeToMinutes(time: string): number {
+    if (!time || time === '0:00' || time === '0') return 0;
+    const parts = time.split(':');
+    if (parts.length < 2) return 0;
+    const hours = parseInt(parts[0], 10) || 0;
+    const minutes = parseInt(parts[1], 10) || 0;
+    return hours * 60 + minutes;
+}
+
+/**
+ * Converts minutes to "HH:MM" display string.
+ */
+export function minutesToDisplay(totalMinutes: number): string {
+    if (totalMinutes <= 0) return '0:00';
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    return `${hours}:${mins.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Calculates the difference in minutes between two time strings.
+ */
+export function calculateTimeDiff(entrada: string, salida: string): number {
+    const entradaMin = timeToMinutes(entrada);
+    const salidaMin = timeToMinutes(salida);
+    if (salidaMin <= entradaMin) return 0;
+    return salidaMin - entradaMin;
+}
+
+/**
+ * Calculates overtime given total worked minutes and standard jornada minutes.
+ */
+export function calculateExtras(totalMinutes: number, jornadaMinutes: number): number {
+    return Math.max(0, totalMinutes - jornadaMinutes);
+}
+
+/**
+ * Calculates salary estimates.
+ * salarioMensual / 30 days = daily salary
+ * daily salary / horasJornada = hourly rate
+ * extras * 1.5 for overtime (multiplier can be adjusted)
+ */
+export function calculateSalaryEstimate(
+    salarioMensual: number,
+    horasJornada: number,
+    totalHorasTrabajadasMes: number, // in minutes
+    totalExtrasMinutes: number // in minutes
+) {
+    const salarioDiario = salarioMensual / 30;
+    const salarioHora = salarioDiario / horasJornada;
+    const salarioHoraMinuto = salarioHora / 60;
+
+    const totalDiasLaborales = totalHorasTrabajadasMes / (horasJornada * 60);
+    const salarioBase = totalDiasLaborales * salarioDiario;
+    const pagoExtras = (totalExtrasMinutes / 60) * salarioHora * 1.5;
+
+    return {
+        salarioDiario: Math.round(salarioDiario * 100) / 100,
+        salarioHora: Math.round(salarioHora * 100) / 100,
+        salarioBase: Math.round(salarioBase * 100) / 100,
+        pagoExtras: Math.round(pagoExtras * 100) / 100,
+        totalEstimado: Math.round((salarioBase + pagoExtras) * 100) / 100,
+    };
+}
+
+/**
+ * Gets the day name in Spanish for a given date.
+ */
+export function getDayName(date: Date): string {
+    return date.toLocaleDateString('es-ES', { weekday: 'long' });
+}
+
+/**
+ * Formats a date to YYYY-MM-DD string.
+ */
+export function formatDate(date: Date): string {
+    return date.toISOString().split('T')[0];
+}
