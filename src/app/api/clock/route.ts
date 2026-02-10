@@ -1,0 +1,211 @@
+import { auth } from '@/lib/auth';
+import { connectDB } from '@/lib/db';
+import { WorkEntry } from '@/models/work-entry';
+import { UserSettings } from '@/models/user-settings';
+import { headers } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
+
+async function getUser() {
+    const session = await auth.api.getSession({
+        headers: await headers(),
+    });
+    return session?.user;
+}
+
+function getNow() {
+    const now = new Date();
+    const hh = now.getHours().toString().padStart(2, '0');
+    const mm = now.getMinutes().toString().padStart(2, '0');
+    return { time: `${hh}:${mm}`, date: now };
+}
+
+function getDayName(date: Date): string {
+    return date.toLocaleDateString('es-ES', { weekday: 'long' });
+}
+
+function timeToMinutes(time: string): number {
+    if (!time) return 0;
+    const [h, m] = time.split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+}
+
+// GET: returns today's open entry (if any) so the UI knows the current state
+export async function GET() {
+    const user = await getUser();
+    if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
+    await connectDB();
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const entry = await WorkEntry.findOne({
+        userId: user.id,
+        fecha: { $gte: today, $lt: tomorrow },
+    })
+        .sort({ createdAt: -1 })
+        .lean();
+
+    // Determine clock state
+    if (!entry) {
+        return NextResponse.json({ status: 'idle' });
+    }
+
+    if (!entry.salida && entry.entrada) {
+        return NextResponse.json({
+            status: 'clocked-in',
+            entrada: entry.entrada,
+            entryId: entry._id,
+        });
+    }
+
+    // Has salida on turno 1 but no entrada2 — could clock in for turno 2
+    if (entry.salida && !entry.entrada2) {
+        return NextResponse.json({
+            status: 'between-shifts',
+            entrada: entry.entrada,
+            salida: entry.salida,
+            entryId: entry._id,
+        });
+    }
+
+    // Clocked in for turno 2
+    if (entry.entrada2 && !entry.salida2) {
+        return NextResponse.json({
+            status: 'clocked-in-2',
+            entrada: entry.entrada,
+            salida: entry.salida,
+            entrada2: entry.entrada2,
+            entryId: entry._id,
+        });
+    }
+
+    // Everything is filled
+    return NextResponse.json({
+        status: 'done',
+        entrada: entry.entrada,
+        salida: entry.salida,
+        entrada2: entry.entrada2,
+        salida2: entry.salida2,
+        entryId: entry._id,
+    });
+}
+
+// POST: toggle clock in/out
+export async function POST(req: NextRequest) {
+    const user = await getUser();
+    if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
+    await connectDB();
+
+    const body = await req.json().catch(() => ({}));
+    const action = body.action as string; // "clock-in", "clock-out", "clock-in-2", "clock-out-2"
+
+    const { time, date } = getNow();
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Get settings for horasLaborales
+    const settings = await UserSettings.findOne({ userId: user.id }).lean();
+    const horasJornada = settings?.horasJornada ?? 9;
+    const horasLaboralesMin = horasJornada * 60;
+
+    // Find today's latest entry
+    let entry = await WorkEntry.findOne({
+        userId: user.id,
+        fecha: { $gte: today, $lt: tomorrow },
+    }).sort({ createdAt: -1 });
+
+    if (action === 'clock-in') {
+        if (entry && entry.entrada && !entry.salida) {
+            return NextResponse.json({ error: 'Ya fichaste entrada hoy' }, { status: 400 });
+        }
+        // Create new entry with just entrada
+        entry = await WorkEntry.create({
+            userId: user.id,
+            fecha: date,
+            dia: getDayName(date),
+            entrada: time,
+            salida: '',
+            horasTurno: 0,
+            horasLaborales: horasLaboralesMin,
+            horasExtras: 0,
+            ubicacion: body.ubicacion || 'Oficina',
+        });
+        return NextResponse.json({
+            status: 'clocked-in',
+            entrada: time,
+            entryId: entry._id,
+        });
+    }
+
+    if (action === 'clock-out') {
+        if (!entry || !entry.entrada || entry.salida) {
+            return NextResponse.json(
+                { error: 'No hay fichaje de entrada para cerrar' },
+                { status: 400 }
+            );
+        }
+        const turno1 = Math.max(0, timeToMinutes(time) - timeToMinutes(entry.entrada));
+        const extras = Math.max(0, turno1 - entry.horasLaborales);
+        entry.salida = time;
+        entry.horasTurno = turno1;
+        entry.horasExtras = extras;
+        await entry.save();
+        return NextResponse.json({
+            status: 'between-shifts',
+            entrada: entry.entrada,
+            salida: time,
+            entryId: entry._id,
+        });
+    }
+
+    if (action === 'clock-in-2') {
+        if (!entry || !entry.salida) {
+            return NextResponse.json(
+                { error: 'Primero debes completar el turno 1' },
+                { status: 400 }
+            );
+        }
+        entry.entrada2 = time;
+        await entry.save();
+        return NextResponse.json({
+            status: 'clocked-in-2',
+            entrada: entry.entrada,
+            salida: entry.salida,
+            entrada2: time,
+            entryId: entry._id,
+        });
+    }
+
+    if (action === 'clock-out-2') {
+        if (!entry || !entry.entrada2 || entry.salida2) {
+            return NextResponse.json(
+                { error: 'No hay fichaje de entrada 2 para cerrar' },
+                { status: 400 }
+            );
+        }
+        const turno2 = Math.max(0, timeToMinutes(time) - timeToMinutes(entry.entrada2));
+        const totalMinutes = (entry.horasTurno || 0) + turno2;
+        const extras = Math.max(0, totalMinutes - entry.horasLaborales);
+        entry.salida2 = time;
+        entry.horasTurno2 = turno2;
+        entry.horasExtras = extras;
+        await entry.save();
+        return NextResponse.json({
+            status: 'done',
+            entrada: entry.entrada,
+            salida: entry.salida,
+            entrada2: entry.entrada2,
+            salida2: time,
+            entryId: entry._id,
+        });
+    }
+
+    return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
+}
