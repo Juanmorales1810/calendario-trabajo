@@ -5,7 +5,7 @@ export const workEntrySchema = z.object({
     dia: z.string().min(1, 'El día es requerido'),
     entrada: z.string().min(1, 'La hora de entrada es requerida'),
     salida: z.string().min(1, 'La hora de salida es requerida'),
-    horasLaborales: z.number().min(0),
+    horasLaborales: z.number().min(0).optional(),
     ubicacion: z.string(),
     entrada2: z.string(),
     salida2: z.string(),
@@ -17,6 +17,7 @@ export type WorkEntryFormData = z.infer<typeof workEntrySchema>;
 export const settingsSchema = z.object({
     salarioMensual: z.number().min(0, 'El salario debe ser positivo'),
     horasJornada: z.number().min(1).max(24, 'Máximo 24 horas'),
+    trabajaSabados: z.boolean(),
     moneda: z.string().min(1, 'La moneda es requerida'),
 });
 

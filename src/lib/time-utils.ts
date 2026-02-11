@@ -31,9 +31,37 @@ export function calculateTimeDiff(entrada: string, salida: string): number {
 }
 
 /**
- * Calculates overtime given total worked minutes and standard jornada minutes.
+ * Calculates overtime given total worked minutes, standard jornada minutes,
+ * and the day of the week.
+ * - domingo: ALL hours are overtime
+ * - sábado + trabajaSabados=true: jornada is 4h, extras beyond that
+ * - sábado + trabajaSabados=false: ALL hours are overtime
+ * - lunes-viernes: normal calculation
  */
-export function calculateExtras(totalMinutes: number, jornadaMinutes: number): number {
+export function calculateExtras(
+    totalMinutes: number,
+    jornadaMinutes: number,
+    diaSemana?: string,
+    trabajaSabados?: boolean
+): number {
+    const dia = (diaSemana || '').toLowerCase();
+
+    // Domingo: todo es extra
+    if (dia === 'domingo') {
+        return totalMinutes;
+    }
+
+    // Sábado
+    if (dia === 'sábado' || dia === 'sabado') {
+        if (!trabajaSabados) {
+            // No trabaja sábados: todo es extra
+            return totalMinutes;
+        }
+        // Trabaja sábados: jornada de 4 horas (240 min)
+        return Math.max(0, totalMinutes - 4 * 60);
+    }
+
+    // Lunes a viernes: cálculo normal
     return Math.max(0, totalMinutes - jornadaMinutes);
 }
 
