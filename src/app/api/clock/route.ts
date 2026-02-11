@@ -29,6 +29,20 @@ function timeToMinutes(time: string): number {
     return (h || 0) * 60 + (m || 0);
 }
 
+function calculateDayExtras(
+    totalMinutes: number,
+    jornadaMinutes: number,
+    dia: string,
+    trabajaSabados: boolean
+): number {
+    const d = (dia || '').toLowerCase();
+    if (d === 'domingo') return totalMinutes;
+    if (d === 'sábado' || d === 'sabado') {
+        return trabajaSabados ? Math.max(0, totalMinutes - 4 * 60) : totalMinutes;
+    }
+    return Math.max(0, totalMinutes - jornadaMinutes);
+}
+
 // GET: returns today's open entry (if any) so the UI knows the current state
 export async function GET() {
     const user = await getUser();
@@ -114,6 +128,8 @@ export async function POST(req: NextRequest) {
     const settings = await UserSettings.findOne({ userId: user.id }).lean();
     const horasJornada = settings?.horasJornada ?? 9;
     const horasLaboralesMin = horasJornada * 60;
+    const trabajaSabados = settings?.trabajaSabados ?? false;
+    const diaSemana = getDayName(date);
 
     // Find today's latest entry
     let entry = await WorkEntry.findOne({
@@ -129,7 +145,7 @@ export async function POST(req: NextRequest) {
         entry = await WorkEntry.create({
             userId: user.id,
             fecha: date,
-            dia: getDayName(date),
+            dia: diaSemana,
             entrada: time,
             salida: '',
             horasTurno: 0,
@@ -152,7 +168,7 @@ export async function POST(req: NextRequest) {
             );
         }
         const turno1 = Math.max(0, timeToMinutes(time) - timeToMinutes(entry.entrada));
-        const extras = Math.max(0, turno1 - entry.horasLaborales);
+        const extras = calculateDayExtras(turno1, horasLaboralesMin, entry.dia, trabajaSabados);
         entry.salida = time;
         entry.horasTurno = turno1;
         entry.horasExtras = extras;
@@ -192,7 +208,12 @@ export async function POST(req: NextRequest) {
         }
         const turno2 = Math.max(0, timeToMinutes(time) - timeToMinutes(entry.entrada2));
         const totalMinutes = (entry.horasTurno || 0) + turno2;
-        const extras = Math.max(0, totalMinutes - entry.horasLaborales);
+        const extras = calculateDayExtras(
+            totalMinutes,
+            entry.horasLaborales,
+            entry.dia,
+            trabajaSabados
+        );
         entry.salida2 = time;
         entry.horasTurno2 = turno2;
         entry.horasExtras = extras;

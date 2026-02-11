@@ -35,7 +35,7 @@ export async function PUT(req: NextRequest) {
     const settings = await UserSettings.findOneAndUpdate(
         { userId: user.id },
         { ...body, userId: user.id },
-        { new: true, upsert: true }
+        { returnDocument: 'after', upsert: true }
     ).lean();
 
     return NextResponse.json(settings);

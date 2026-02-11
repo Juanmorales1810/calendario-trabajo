@@ -20,7 +20,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const body = await req.json();
 
     const entry = await WorkEntry.findOneAndUpdate({ _id: id, userId: user.id }, body, {
-        new: true,
+        returnDocument: 'after',
     }).lean();
 
     if (!entry) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
