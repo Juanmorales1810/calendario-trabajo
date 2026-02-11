@@ -100,40 +100,31 @@ export default function Navbar() {
                             <ClockIcon className="h-6 w-6" />
                             <span className="hidden font-semibold sm:inline">HorasWork</span>
                         </Link>
-                        {/* Desktop navigation */}
+                        {/* Desktop navigation - icon only */}
                         <NavigationMenu className="hidden md:flex">
-                            <NavigationMenuList className="gap-1">
+                            <NavigationMenuList className="gap-2">
                                 <TooltipProvider>
-                                    {navigationLinks.map((link) => {
-                                        const isActive = pathname === link.href;
-                                        return (
-                                            <NavigationMenuItem key={link.label}>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <NavigationMenuLink
-                                                            active={isActive}
-                                                            className="flex items-center gap-2 px-3 py-1.5 text-sm"
-                                                            asChild>
-                                                            <Link href={link.href}>
-                                                                <link.icon
-                                                                    aria-hidden="true"
-                                                                    size={16}
-                                                                />
-                                                                <span className="hidden lg:inline">
-                                                                    {link.label}
-                                                                </span>
-                                                            </Link>
-                                                        </NavigationMenuLink>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent
-                                                        className="px-2 py-1 text-xs lg:hidden"
-                                                        side="bottom">
-                                                        <p>{link.label}</p>
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                            </NavigationMenuItem>
-                                        );
-                                    })}
+                                    {navigationLinks.map((link) => (
+                                        <NavigationMenuItem key={link.label}>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <NavigationMenuLink
+                                                        className="flex size-8 items-center justify-center p-1.5"
+                                                        href={link.href}>
+                                                        <link.icon aria-hidden="true" size={20} />
+                                                        <span className="sr-only">
+                                                            {link.label}
+                                                        </span>
+                                                    </NavigationMenuLink>
+                                                </TooltipTrigger>
+                                                <TooltipContent
+                                                    className="px-2 py-1 text-xs"
+                                                    side="bottom">
+                                                    <p>{link.label}</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </NavigationMenuItem>
+                                    ))}
                                 </TooltipProvider>
                             </NavigationMenuList>
                         </NavigationMenu>
