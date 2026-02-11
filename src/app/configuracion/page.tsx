@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select';
 import { Settings } from 'lucide-react';
 import { toast } from 'sonner';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function ConfiguracionPage() {
     const { data: session, isPending } = useSession();
@@ -29,6 +30,7 @@ export default function ConfiguracionPage() {
         register,
         handleSubmit,
         setValue,
+        watch,
         reset,
         formState: { errors },
     } = useForm<SettingsFormData>({
@@ -36,6 +38,7 @@ export default function ConfiguracionPage() {
         defaultValues: {
             salarioMensual: 0,
             horasJornada: 9,
+            trabajaSabados: false,
             moneda: 'USD',
         },
     });
@@ -54,6 +57,7 @@ export default function ConfiguracionPage() {
                 reset({
                     salarioMensual: data.salarioMensual || 0,
                     horasJornada: data.horasJornada || 9,
+                    trabajaSabados: data.trabajaSabados ?? false,
                     moneda: data.moneda || 'USD',
                 });
             }
@@ -158,6 +162,28 @@ export default function ConfiguracionPage() {
                         <p className="text-muted-foreground text-xs">
                             Las horas que excedan tu jornada se contarán como extras
                         </p>
+                    </div>
+
+                    <div className="flex items-center space-x-3 rounded-md border p-4">
+                        <Checkbox
+                            id="trabajaSabados"
+                            checked={watch('trabajaSabados')}
+                            onCheckedChange={(checked) =>
+                                setValue('trabajaSabados', checked === true, {
+                                    shouldValidate: true,
+                                })
+                            }
+                        />
+                        <div className="space-y-1">
+                            <Label htmlFor="trabajaSabados" className="cursor-pointer">
+                                Trabajo los sábados
+                            </Label>
+                            <p className="text-muted-foreground text-xs">
+                                Si está activo, los sábados cuentan como media jornada (4 hs). Si
+                                no, todas las horas del sábado son extras. Los domingos siempre se
+                                cuentan como horas extras.
+                            </p>
+                        </div>
                     </div>
 
                     <div className="space-y-2">
