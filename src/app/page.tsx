@@ -43,6 +43,7 @@ interface WorkEntry {
 interface UserSettingsData {
     salarioMensual: number;
     horasJornada: number;
+    trabajaSabados: boolean;
     moneda: string;
 }
 
@@ -176,6 +177,7 @@ export default function DashboardPage() {
                         <WorkEntryForm
                             entry={editingEntry}
                             horasJornada={settings?.horasJornada ?? 9}
+                            trabajaSabados={settings?.trabajaSabados ?? false}
                             onSuccess={handleEntryCreated}
                         />
                     </DialogContent>
