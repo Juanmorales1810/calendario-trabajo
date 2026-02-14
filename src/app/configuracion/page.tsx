@@ -19,6 +19,7 @@ import {
 import { Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ConfiguracionPage() {
     const { data: session, isPending } = useSession();
@@ -39,7 +40,7 @@ export default function ConfiguracionPage() {
             salarioMensual: 0,
             horasJornada: 9,
             trabajaSabados: false,
-            moneda: 'USD',
+            moneda: 'ARS',
         },
     });
 
@@ -58,7 +59,7 @@ export default function ConfiguracionPage() {
                     salarioMensual: data.salarioMensual || 0,
                     horasJornada: data.horasJornada || 9,
                     trabajaSabados: data.trabajaSabados ?? false,
-                    moneda: data.moneda || 'USD',
+                    moneda: data.moneda || 'ARS',
                 });
             }
         } catch {
@@ -94,8 +95,34 @@ export default function ConfiguracionPage() {
 
     if (isPending || loading) {
         return (
-            <div className="flex min-h-[60vh] items-center justify-center">
-                <div className="text-muted-foreground">Cargando...</div>
+            <div className="container mx-auto max-w-2xl px-4 py-8">
+                <div className="mb-8 flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-lg" />
+                    <div className="space-y-2">
+                        <Skeleton className="h-6 w-40" />
+                        <Skeleton className="h-4 w-56" />
+                    </div>
+                </div>
+                <div className="space-y-6">
+                    <div className="space-y-6 rounded-lg border p-6">
+                        <Skeleton className="h-6 w-36" />
+                        <div className="space-y-2">
+                            <Skeleton className="h-4 w-44" />
+                            <Skeleton className="h-10 w-full" />
+                        </div>
+                        <div className="space-y-2">
+                            <Skeleton className="h-4 w-52" />
+                            <Skeleton className="h-10 w-full" />
+                        </div>
+                        <Skeleton className="h-20 w-full rounded-md" />
+                        <div className="space-y-2">
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-10 w-full" />
+                        </div>
+                    </div>
+                    <Skeleton className="h-32 w-full rounded-lg" />
+                    <Skeleton className="h-10 w-full" />
+                </div>
             </div>
         );
     }
@@ -189,7 +216,7 @@ export default function ConfiguracionPage() {
                     <div className="space-y-2">
                         <Label htmlFor="moneda">Moneda</Label>
                         <Select
-                            defaultValue="USD"
+                            defaultValue="ARS"
                             onValueChange={(v) => setValue('moneda', v, { shouldValidate: true })}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Seleccionar" />
@@ -218,9 +245,9 @@ export default function ConfiguracionPage() {
                             Si tu salario es de <strong>X</strong> al mes:
                         </p>
                         <ul className="list-disc space-y-1 pl-5">
-                            <li>Salario diario = Salario mensual / 30 días</li>
-                            <li>Salario por hora = Salario diario / Horas de jornada</li>
-                            <li>Pago horas extras = Horas extras × Salario/hora × 1.5</li>
+                            <li>Salario por hora = Salario mensual / 176 horas</li>
+                            <li>Salario diario = Salario/hora × Horas de jornada</li>
+                            <li>Pago horas extras = Horas extras × Salario/hora</li>
                         </ul>
                     </div>
                 </div>
