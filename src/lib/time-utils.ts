@@ -67,9 +67,8 @@ export function calculateExtras(
 
 /**
  * Calculates salary estimates.
- * salarioMensual / 30 days = daily salary
- * daily salary / horasJornada = hourly rate
- * extras * 1.5 for overtime (multiplier can be adjusted)
+ * Precio hora = salarioMensual / 176 (horas laborales en 30 días)
+ * Horas extras se pagan al mismo valor que la hora normal (sin multiplicador)
  */
 export function calculateSalaryEstimate(
     salarioMensual: number,
@@ -77,13 +76,16 @@ export function calculateSalaryEstimate(
     totalHorasTrabajadasMes: number, // in minutes
     totalExtrasMinutes: number // in minutes
 ) {
-    const salarioDiario = salarioMensual / 30;
-    const salarioHora = salarioDiario / horasJornada;
-    const salarioHoraMinuto = salarioHora / 60;
+    const HORAS_LABORALES_MES = 176;
+    const salarioHora = salarioMensual / HORAS_LABORALES_MES;
+    const salarioDiario = salarioHora * horasJornada;
 
-    const totalDiasLaborales = totalHorasTrabajadasMes / (horasJornada * 60);
-    const salarioBase = totalDiasLaborales * salarioDiario;
-    const pagoExtras = (totalExtrasMinutes / 60) * salarioHora * 1.5;
+    const totalHorasTrabajadas = totalHorasTrabajadasMes / 60;
+    const totalExtrasHoras = totalExtrasMinutes / 60;
+    const horasNormales = totalHorasTrabajadas - totalExtrasHoras;
+
+    const salarioBase = horasNormales * salarioHora;
+    const pagoExtras = totalExtrasHoras * salarioHora;
 
     return {
         salarioDiario: Math.round(salarioDiario * 100) / 100,
