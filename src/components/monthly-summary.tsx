@@ -116,7 +116,7 @@ export function MonthlySummary({ entries, settings }: MonthlySummaryProps) {
                             </span>
                         </div>
                         <div>
-                            <span className="text-muted-foreground">Pago extras (x1.5):</span>
+                            <span className="text-muted-foreground">Pago extras:</span>
                             <span className="ml-2 font-medium text-amber-600 dark:text-amber-400">
                                 {moneda} {salary.pagoExtras.toLocaleString('es-ES')}
                             </span>
