@@ -9,6 +9,7 @@ import { MonthlySummary } from '@/components/monthly-summary';
 import { ClockButton } from '@/components/clock-button';
 import { Clock, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
     Dialog,
     DialogContent,
@@ -130,8 +131,33 @@ export default function DashboardPage() {
 
     if (isPending) {
         return (
-            <div className="flex min-h-[60vh] items-center justify-center">
-                <div className="text-muted-foreground">Cargando...</div>
+            <div className="container mx-auto space-y-6 px-4 py-8">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                        <Skeleton className="h-10 w-10 rounded-lg" />
+                        <div className="space-y-2">
+                            <Skeleton className="h-6 w-48" />
+                            <Skeleton className="h-4 w-64" />
+                        </div>
+                    </div>
+                    <Skeleton className="h-10 w-36" />
+                </div>
+                <Skeleton className="h-24 w-full rounded-lg" />
+                <div className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-[150px]" />
+                    <Skeleton className="h-10 w-[100px]" />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <Skeleton key={i} className="h-20 rounded-lg" />
+                    ))}
+                </div>
+                <div className="space-y-3">
+                    <Skeleton className="h-10 w-full" />
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <Skeleton key={i} className="h-12 w-full" />
+                    ))}
+                </div>
             </div>
         );
     }
