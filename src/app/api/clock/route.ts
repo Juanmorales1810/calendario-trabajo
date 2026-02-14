@@ -115,9 +115,12 @@ export async function POST(req: NextRequest) {
     await connectDB();
 
     const body = await req.json().catch(() => ({}));
-    const action = body.action as string; // "clock-in", "clock-out", "clock-in-2", "clock-out-2"
+    const action = body.action as string;
+    const clientTime = body.clientTime as string | undefined;
 
     const { time, date } = getNow();
+    // Use client-provided time if available (avoids server UTC mismatch)
+    const resolvedTime = clientTime || time;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -146,7 +149,7 @@ export async function POST(req: NextRequest) {
             userId: user.id,
             fecha: date,
             dia: diaSemana,
-            entrada: time,
+            entrada: resolvedTime,
             salida: '',
             horasTurno: 0,
             horasLaborales: horasLaboralesMin,
@@ -155,7 +158,7 @@ export async function POST(req: NextRequest) {
         });
         return NextResponse.json({
             status: 'clocked-in',
-            entrada: time,
+            entrada: resolvedTime,
             entryId: entry._id,
         });
     }
@@ -167,16 +170,16 @@ export async function POST(req: NextRequest) {
                 { status: 400 }
             );
         }
-        const turno1 = Math.max(0, timeToMinutes(time) - timeToMinutes(entry.entrada));
+        const turno1 = Math.max(0, timeToMinutes(resolvedTime) - timeToMinutes(entry.entrada));
         const extras = calculateDayExtras(turno1, horasLaboralesMin, entry.dia, trabajaSabados);
-        entry.salida = time;
+        entry.salida = resolvedTime;
         entry.horasTurno = turno1;
         entry.horasExtras = extras;
         await entry.save();
         return NextResponse.json({
             status: 'between-shifts',
             entrada: entry.entrada,
-            salida: time,
+            salida: resolvedTime,
             entryId: entry._id,
         });
     }
@@ -188,13 +191,13 @@ export async function POST(req: NextRequest) {
                 { status: 400 }
             );
         }
-        entry.entrada2 = time;
+        entry.entrada2 = resolvedTime;
         await entry.save();
         return NextResponse.json({
             status: 'clocked-in-2',
             entrada: entry.entrada,
             salida: entry.salida,
-            entrada2: time,
+            entrada2: resolvedTime,
             entryId: entry._id,
         });
     }
@@ -206,7 +209,7 @@ export async function POST(req: NextRequest) {
                 { status: 400 }
             );
         }
-        const turno2 = Math.max(0, timeToMinutes(time) - timeToMinutes(entry.entrada2));
+        const turno2 = Math.max(0, timeToMinutes(resolvedTime) - timeToMinutes(entry.entrada2));
         const totalMinutes = (entry.horasTurno || 0) + turno2;
         const extras = calculateDayExtras(
             totalMinutes,
@@ -214,7 +217,7 @@ export async function POST(req: NextRequest) {
             entry.dia,
             trabajaSabados
         );
-        entry.salida2 = time;
+        entry.salida2 = resolvedTime;
         entry.horasTurno2 = turno2;
         entry.horasExtras = extras;
         await entry.save();
@@ -223,7 +226,7 @@ export async function POST(req: NextRequest) {
             entrada: entry.entrada,
             salida: entry.salida,
             entrada2: entry.entrada2,
-            salida2: time,
+            salida2: resolvedTime,
             entryId: entry._id,
         });
     }
