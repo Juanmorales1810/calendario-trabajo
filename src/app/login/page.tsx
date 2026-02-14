@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ClockIcon } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -54,8 +55,26 @@ export default function LoginPage() {
 
     if (isPending) {
         return (
-            <div className="flex min-h-screen items-center justify-center">
-                <p className="text-muted-foreground">Cargando...</p>
+            <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
+                <div className="w-full max-w-md space-y-8">
+                    <div className="flex flex-col items-center space-y-4">
+                        <Skeleton className="h-14 w-14 rounded-full" />
+                        <Skeleton className="h-7 w-40" />
+                        <Skeleton className="h-4 w-60" />
+                    </div>
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Skeleton className="h-4 w-16" />
+                            <Skeleton className="h-10 w-full" />
+                        </div>
+                        <div className="space-y-2">
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-10 w-full" />
+                        </div>
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                    <Skeleton className="mx-auto h-4 w-48" />
+                </div>
             </div>
         );
     }
