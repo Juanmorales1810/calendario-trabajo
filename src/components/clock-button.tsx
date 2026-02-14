@@ -60,10 +60,13 @@ export function ClockButton({ onClockAction }: ClockButtonProps) {
     const handleAction = async (action: string) => {
         setLoading(true);
         try {
+            const now = new Date();
+            const hh = now.getHours().toString().padStart(2, '0');
+            const mm = now.getMinutes().toString().padStart(2, '0');
             const res = await fetch('/api/clock', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action }),
+                body: JSON.stringify({ action, clientTime: `${hh}:${mm}` }),
             });
             if (res.ok) {
                 const data = await res.json();
