@@ -63,13 +63,15 @@ const meses = [
     'Diciembre',
 ];
 
+const currentYears = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
+
 export default function DashboardPage() {
     const { data: session, isPending } = useSession();
     const router = useRouter();
     const [entries, setEntries] = useState<WorkEntry[]>([]);
     const [settings, setSettings] = useState<UserSettingsData | null>(null);
-    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingEntry, setEditingEntry] = useState<WorkEntry | null>(null);
     const [loading, setLoading] = useState(true);
@@ -80,13 +82,14 @@ export default function DashboardPage() {
         }
     }, [session, isPending, router]);
 
-    const fetchEntries = useCallback(async () => {
+    const fetchData = useCallback(async () => {
         try {
-            const res = await fetch(`/api/work-entries?mes=${selectedMonth}&anio=${selectedYear}`);
-            if (res.ok) {
-                const data = await res.json();
-                setEntries(data);
-            }
+            const [entriesRes, settingsRes] = await Promise.all([
+                fetch(`/api/work-entries?mes=${selectedMonth}&anio=${selectedYear}`),
+                fetch('/api/settings'),
+            ]);
+            if (entriesRes.ok) setEntries(await entriesRes.json());
+            if (settingsRes.ok) setSettings(await settingsRes.json());
         } catch {
             // silenced
         } finally {
@@ -94,40 +97,25 @@ export default function DashboardPage() {
         }
     }, [selectedMonth, selectedYear]);
 
-    const fetchSettings = useCallback(async () => {
-        try {
-            const res = await fetch('/api/settings');
-            if (res.ok) {
-                const data = await res.json();
-                setSettings(data);
-            }
-        } catch {
-            // silenced
-        }
-    }, []);
-
     useEffect(() => {
-        if (session) {
-            fetchEntries();
-            fetchSettings();
-        }
-    }, [session, fetchEntries, fetchSettings]);
+        if (session) fetchData();
+    }, [session, fetchData]);
 
     const handleEntryCreated = () => {
         setDialogOpen(false);
         setEditingEntry(null);
-        fetchEntries();
+        fetchData();
     };
 
-    const handleEdit = (entry: WorkEntry) => {
+    const handleEdit = useCallback((entry: WorkEntry) => {
         setEditingEntry(entry);
         setDialogOpen(true);
-    };
+    }, []);
 
-    const handleDelete = async (id: string) => {
+    const handleDelete = useCallback(async (id: string) => {
         const res = await fetch(`/api/work-entries/${id}`, { method: 'DELETE' });
-        if (res.ok) fetchEntries();
-    };
+        if (res.ok) fetchData();
+    }, [fetchData]);
 
     if (isPending) {
         return (
@@ -163,8 +151,6 @@ export default function DashboardPage() {
     }
 
     if (!session) return null;
-
-    const currentYears = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
 
     return (
         <div className="container mx-auto space-y-6 px-4 py-8">
@@ -211,7 +197,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Clock In/Out */}
-            <ClockButton onClockAction={fetchEntries} />
+            <ClockButton onClockAction={fetchData} />
 
             {/* Month/Year filter */}
             <div className="flex items-center gap-3">
