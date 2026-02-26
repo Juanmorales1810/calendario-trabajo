@@ -12,10 +12,8 @@ async function getUser() {
 }
 
 export async function GET() {
-    const user = await getUser();
+    const [user] = await Promise.all([getUser(), connectDB()]);
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-
-    await connectDB();
 
     let settings = await UserSettings.findOne({ userId: user.id }).lean();
     if (!settings) {
@@ -26,12 +24,8 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-    const user = await getUser();
+    const [user, , body] = await Promise.all([getUser(), connectDB(), req.json()]);
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-
-    await connectDB();
-
-    const body = await req.json();
     const settings = await UserSettings.findOneAndUpdate(
         { userId: user.id },
         { ...body, userId: user.id },
