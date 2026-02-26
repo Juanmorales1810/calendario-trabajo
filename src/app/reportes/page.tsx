@@ -2,10 +2,11 @@
 
 import { useSession } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { minutesToDisplay, calculateSalaryEstimate } from '@/lib/time-utils';
-import { BarChart3, Clock, TrendingUp, DollarSign } from 'lucide-react';
+import { BarChart3, Clock, TrendingUp, DollarSign, Download } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import {
     Select,
     SelectContent,
@@ -13,6 +14,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface WorkEntry {
     _id: string;
@@ -49,13 +56,15 @@ const meses = [
     'Diciembre',
 ];
 
+const currentYears = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
+
 export default function ReportesPage() {
     const { data: session, isPending } = useSession();
     const router = useRouter();
     const [entries, setEntries] = useState<WorkEntry[]>([]);
     const [settings, setSettings] = useState<UserSettingsData | null>(null);
-    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -114,34 +123,58 @@ export default function ReportesPage() {
 
     if (!session) return null;
 
-    // Calculations
-    const totalTurno1 = entries.reduce((s, e) => s + (e.horasTurno || 0), 0);
-    const totalTurno2 = entries.reduce((s, e) => s + (e.horasTurno2 || 0), 0);
-    const totalTrabajadas = totalTurno1 + totalTurno2;
-    const totalExtras = entries.reduce((s, e) => s + (e.horasExtras || 0), 0);
-    const totalLaborales = entries.reduce((s, e) => s + (e.horasLaborales || 0), 0);
-    const diasTrabajados = entries.filter((e) => e.horasTurno > 0 || e.horasTurno2 > 0).length;
+    // Calculations — single pass over entries (js-combine-iterations + rerender-memo)
+    const {
+        totalTurno1,
+        totalTurno2,
+        totalTrabajadas,
+        totalExtras,
+        totalLaborales,
+        diasTrabajados,
+        weeklyData,
+        ubicacionData,
+    } = useMemo(() => {
+        let t1 = 0,
+            t2 = 0,
+            extras = 0,
+            laborales = 0,
+            dias = 0;
+        const weekly: Record<string, { horas: number; extras: number; dias: number }> = {};
+        const ubicacion: Record<string, number> = {};
 
-    // Group by week
-    const weeklyData: Record<string, { horas: number; extras: number; dias: number }> = {};
-    entries.forEach((e) => {
-        const date = new Date(e.fecha);
-        const weekStart = new Date(date);
-        weekStart.setDate(date.getDate() - date.getDay() + 1);
-        const key = weekStart.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
-        if (!weeklyData[key]) weeklyData[key] = { horas: 0, extras: 0, dias: 0 };
-        weeklyData[key].horas += (e.horasTurno || 0) + (e.horasTurno2 || 0);
-        weeklyData[key].extras += e.horasExtras || 0;
-        if (e.horasTurno > 0 || e.horasTurno2 > 0) weeklyData[key].dias++;
-    });
+        for (const e of entries) {
+            const eT1 = e.horasTurno || 0;
+            const eT2 = e.horasTurno2 || 0;
+            t1 += eT1;
+            t2 += eT2;
+            extras += e.horasExtras || 0;
+            laborales += e.horasLaborales || 0;
+            if (eT1 > 0 || eT2 > 0) dias++;
 
-    // Group by ubicacion
-    const ubicacionData: Record<string, number> = {};
-    entries.forEach((e) => {
-        const ub = e.ubicacion || 'Sin ubicación';
-        if (!ubicacionData[ub]) ubicacionData[ub] = 0;
-        ubicacionData[ub] += (e.horasTurno || 0) + (e.horasTurno2 || 0);
-    });
+            const date = new Date(e.fecha);
+            const weekStart = new Date(date);
+            weekStart.setDate(date.getDate() - date.getDay() + 1);
+            const key = weekStart.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+            if (!weekly[key]) weekly[key] = { horas: 0, extras: 0, dias: 0 };
+            weekly[key].horas += eT1 + eT2;
+            weekly[key].extras += e.horasExtras || 0;
+            if (eT1 > 0 || eT2 > 0) weekly[key].dias++;
+
+            const ub = e.ubicacion || 'Sin ubicación';
+            ubicacion[ub] = (ubicacion[ub] || 0) + eT1 + eT2;
+        }
+
+        return {
+            totalTurno1: t1,
+            totalTurno2: t2,
+            totalTrabajadas: t1 + t2,
+            totalExtras: extras,
+            totalLaborales: laborales,
+            diasTrabajados: dias,
+            weeklyData: weekly,
+            ubicacionData: ubicacion,
+        };
+    }, [entries]);
 
     const salary =
         settings?.salarioMensual && settings.salarioMensual > 0
@@ -155,7 +188,460 @@ export default function ReportesPage() {
 
     const moneda = settings?.moneda || 'USD';
     const avgHorasPerDay = diasTrabajados > 0 ? totalTrabajadas / diasTrabajados : 0;
-    const currentYears = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
+
+    const mesNombre = meses[selectedMonth - 1];
+    const periodoLabel = `${mesNombre}_${selectedYear}`;
+
+    async function downloadExcel() {
+        const ExcelJS = await import('exceljs');
+        const { saveAs } = await import('file-saver');
+
+        const wb = new ExcelJS.Workbook();
+        wb.creator = 'Calendario Trabajo';
+        wb.created = new Date();
+
+        const headerFill = {
+            type: 'pattern' as const,
+            pattern: 'solid' as const,
+            fgColor: { argb: '3B82F6' },
+        };
+        const headerFont = { bold: true, color: { argb: 'FFFFFF' }, size: 10 };
+        const titleFont = { bold: true, size: 14, color: { argb: '1E3A5F' } };
+        const subtitleFont = { bold: true, size: 11, color: { argb: '3B82F6' } };
+        const totalsFill = {
+            type: 'pattern' as const,
+            pattern: 'solid' as const,
+            fgColor: { argb: 'E8F0FE' },
+        };
+        const totalsFont = { bold: true, size: 10 };
+        const thinBorder = {
+            top: { style: 'thin' as const, color: { argb: 'D1D5DB' } },
+            left: { style: 'thin' as const, color: { argb: 'D1D5DB' } },
+            bottom: { style: 'thin' as const, color: { argb: 'D1D5DB' } },
+            right: { style: 'thin' as const, color: { argb: 'D1D5DB' } },
+        };
+        const zebraFill = {
+            type: 'pattern' as const,
+            pattern: 'solid' as const,
+            fgColor: { argb: 'F9FAFB' },
+        };
+
+        // ========== Sheet 1: Detalle ==========
+        const ws = wb.addWorksheet('Detalle');
+        const colCount = 10;
+
+        // Title row
+        ws.mergeCells(1, 1, 1, colCount);
+        const titleCell = ws.getCell('A1');
+        titleCell.value = `Reporte de Horas — ${mesNombre} ${selectedYear}`;
+        titleCell.font = titleFont;
+        titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        ws.getRow(1).height = 30;
+
+        // Empty row
+        ws.getRow(2).height = 8;
+
+        // Headers (row 3)
+        const headers = [
+            'Fecha',
+            'Día',
+            'Entrada',
+            'Salida',
+            'Turno',
+            'Laboral',
+            'Extras',
+            'Ubicación',
+            'Turno 2',
+            'Observaciones',
+        ];
+        const headerRow = ws.getRow(3);
+        headers.forEach((h, i) => {
+            const cell = headerRow.getCell(i + 1);
+            cell.value = h;
+            cell.font = headerFont;
+            cell.fill = headerFill;
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            cell.border = thinBorder;
+        });
+        headerRow.height = 22;
+
+        // Data rows
+        entries.forEach((e, idx) => {
+            const fecha = new Date(e.fecha).toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+            });
+            const row = ws.getRow(4 + idx);
+            const values = [
+                fecha,
+                e.dia,
+                e.entrada || '-',
+                e.salida || '-',
+                minutesToDisplay(e.horasTurno),
+                minutesToDisplay(e.horasLaborales),
+                minutesToDisplay(e.horasExtras),
+                e.ubicacion || '-',
+                e.horasTurno2 > 0 ? minutesToDisplay(e.horasTurno2) : '-',
+                e.observaciones || '-',
+            ];
+            values.forEach((v, i) => {
+                const cell = row.getCell(i + 1);
+                cell.value = v;
+                cell.border = thinBorder;
+                cell.alignment = {
+                    horizontal: i === 0 || i >= 7 ? 'left' : 'center',
+                    vertical: 'middle',
+                };
+                if (idx % 2 === 1) cell.fill = zebraFill;
+            });
+            // Highlight extras
+            if (e.horasExtras > 0) {
+                const extrasCell = row.getCell(7);
+                extrasCell.font = { bold: true, color: { argb: 'D97706' } };
+            }
+        });
+
+        // Totals row
+        const totalsRowNum = 4 + entries.length + 1;
+        ws.getRow(4 + entries.length).height = 6; // spacer
+        const tRow = ws.getRow(totalsRowNum);
+        const totalsValues = [
+            'TOTALES',
+            '',
+            '',
+            '',
+            minutesToDisplay(totalTurno1),
+            minutesToDisplay(totalLaborales),
+            minutesToDisplay(totalExtras),
+            '',
+            minutesToDisplay(totalTurno2),
+            '',
+        ];
+        totalsValues.forEach((v, i) => {
+            const cell = tRow.getCell(i + 1);
+            cell.value = v;
+            cell.font = totalsFont;
+            cell.fill = totalsFill;
+            cell.border = thinBorder;
+            cell.alignment = { horizontal: i === 0 ? 'left' : 'center', vertical: 'middle' };
+        });
+        tRow.height = 22;
+
+        // Column widths
+        ws.columns = [
+            { width: 14 },
+            { width: 12 },
+            { width: 10 },
+            { width: 10 },
+            { width: 10 },
+            { width: 10 },
+            { width: 10 },
+            { width: 18 },
+            { width: 10 },
+            { width: 25 },
+        ];
+
+        // ========== Sheet 2: Resumen ==========
+        const wsR = wb.addWorksheet('Resumen');
+
+        wsR.mergeCells('A1:B1');
+        const rTitle = wsR.getCell('A1');
+        rTitle.value = `Resumen — ${mesNombre} ${selectedYear}`;
+        rTitle.font = titleFont;
+        rTitle.alignment = { horizontal: 'center', vertical: 'middle' };
+        wsR.getRow(1).height = 30;
+        wsR.getRow(2).height = 8;
+
+        // Summary headers
+        const rHeaders = wsR.getRow(3);
+        ['Concepto', 'Valor'].forEach((h, i) => {
+            const cell = rHeaders.getCell(i + 1);
+            cell.value = h;
+            cell.font = headerFont;
+            cell.fill = headerFill;
+            cell.alignment = { horizontal: 'center' };
+            cell.border = thinBorder;
+        });
+
+        const summaryItems: [string, string | number][] = [
+            ['Días trabajados', diasTrabajados],
+            ['Total horas trabajadas', minutesToDisplay(totalTrabajadas)],
+            ['Horas turno 1', minutesToDisplay(totalTurno1)],
+            ['Horas turno 2', minutesToDisplay(totalTurno2)],
+            ['Horas laborales', minutesToDisplay(totalLaborales)],
+            ['Horas extras', minutesToDisplay(totalExtras)],
+            ['Promedio diario', minutesToDisplay(Math.round(avgHorasPerDay))],
+        ];
+
+        summaryItems.forEach(([label, val], idx) => {
+            const row = wsR.getRow(4 + idx);
+            const c1 = row.getCell(1);
+            c1.value = label;
+            c1.border = thinBorder;
+            const c2 = row.getCell(2);
+            c2.value = val;
+            c2.border = thinBorder;
+            c2.alignment = { horizontal: 'center' };
+            if (idx % 2 === 1) {
+                c1.fill = zebraFill;
+                c2.fill = zebraFill;
+            }
+        });
+
+        let salaryStartRow = 4 + summaryItems.length + 1;
+        if (salary) {
+            wsR.getRow(salaryStartRow).height = 8;
+            salaryStartRow++;
+            wsR.mergeCells(salaryStartRow, 1, salaryStartRow, 2);
+            const salTitle = wsR.getCell(salaryStartRow, 1);
+            salTitle.value = 'Desglose Salarial';
+            salTitle.font = subtitleFont;
+            salTitle.alignment = { horizontal: 'center' };
+            salaryStartRow++;
+
+            const salaryHeaders = wsR.getRow(salaryStartRow);
+            ['Concepto', 'Valor'].forEach((h, i) => {
+                const cell = salaryHeaders.getCell(i + 1);
+                cell.value = h;
+                cell.font = headerFont;
+                cell.fill = headerFill;
+                cell.alignment = { horizontal: 'center' };
+                cell.border = thinBorder;
+            });
+            salaryStartRow++;
+
+            const salaryItems: [string, string][] = [
+                [
+                    'Salario mensual',
+                    `${moneda} ${settings!.salarioMensual.toLocaleString('es-ES')}`,
+                ],
+                ['Salario/hora', `${moneda} ${salary.salarioHora.toLocaleString('es-ES')}`],
+                ['Salario/día', `${moneda} ${salary.salarioDiario.toLocaleString('es-ES')}`],
+                ['Salario base mes', `${moneda} ${salary.salarioBase.toLocaleString('es-ES')}`],
+                ['Pago extras (x1.5)', `${moneda} ${salary.pagoExtras.toLocaleString('es-ES')}`],
+            ];
+            salaryItems.forEach(([label, val], idx) => {
+                const row = wsR.getRow(salaryStartRow + idx);
+                const c1 = row.getCell(1);
+                c1.value = label;
+                c1.border = thinBorder;
+                const c2 = row.getCell(2);
+                c2.value = val;
+                c2.border = thinBorder;
+                c2.alignment = { horizontal: 'center' };
+                if (idx % 2 === 1) {
+                    c1.fill = zebraFill;
+                    c2.fill = zebraFill;
+                }
+            });
+
+            // Total row highlighted
+            const totalSalRow = wsR.getRow(salaryStartRow + salaryItems.length);
+            const tc1 = totalSalRow.getCell(1);
+            tc1.value = 'Total estimado';
+            tc1.font = totalsFont;
+            tc1.fill = totalsFill;
+            tc1.border = thinBorder;
+            const tc2 = totalSalRow.getCell(2);
+            tc2.value = `${moneda} ${salary.totalEstimado.toLocaleString('es-ES')}`;
+            tc2.font = { bold: true, color: { argb: '059669' }, size: 11 };
+            tc2.fill = totalsFill;
+            tc2.border = thinBorder;
+            tc2.alignment = { horizontal: 'center' };
+        }
+
+        wsR.getColumn(1).width = 26;
+        wsR.getColumn(2).width = 22;
+
+        // ========== Sheet 3: Semanal ==========
+        if (Object.keys(weeklyData).length > 0) {
+            const wsW = wb.addWorksheet('Semanal');
+            wsW.mergeCells('A1:D1');
+            const wTitle = wsW.getCell('A1');
+            wTitle.value = `Resumen Semanal — ${mesNombre} ${selectedYear}`;
+            wTitle.font = titleFont;
+            wTitle.alignment = { horizontal: 'center', vertical: 'middle' };
+            wsW.getRow(1).height = 30;
+            wsW.getRow(2).height = 8;
+
+            const wHeaders = wsW.getRow(3);
+            ['Semana del', 'Días', 'Horas', 'Extras'].forEach((h, i) => {
+                const cell = wHeaders.getCell(i + 1);
+                cell.value = h;
+                cell.font = headerFont;
+                cell.fill = headerFill;
+                cell.alignment = { horizontal: 'center' };
+                cell.border = thinBorder;
+            });
+
+            Object.entries(weeklyData).forEach(([week, data], idx) => {
+                const row = wsW.getRow(4 + idx);
+                [
+                    week,
+                    data.dias,
+                    minutesToDisplay(data.horas),
+                    minutesToDisplay(data.extras),
+                ].forEach((v, i) => {
+                    const cell = row.getCell(i + 1);
+                    cell.value = v;
+                    cell.border = thinBorder;
+                    cell.alignment = { horizontal: 'center' };
+                    if (idx % 2 === 1) cell.fill = zebraFill;
+                });
+                if (data.extras > 0) {
+                    row.getCell(4).font = { bold: true, color: { argb: 'D97706' } };
+                }
+            });
+
+            wsW.getColumn(1).width = 16;
+            wsW.getColumn(2).width = 10;
+            wsW.getColumn(3).width = 12;
+            wsW.getColumn(4).width = 12;
+        }
+
+        // ========== Sheet 4: Ubicación ==========
+        if (Object.keys(ubicacionData).length > 0) {
+            const wsL = wb.addWorksheet('Ubicación');
+            wsL.mergeCells('A1:C1');
+            const lTitle = wsL.getCell('A1');
+            lTitle.value = `Horas por Ubicación — ${mesNombre} ${selectedYear}`;
+            lTitle.font = titleFont;
+            lTitle.alignment = { horizontal: 'center', vertical: 'middle' };
+            wsL.getRow(1).height = 30;
+            wsL.getRow(2).height = 8;
+
+            const lHeaders = wsL.getRow(3);
+            ['Ubicación', 'Horas', '% del Total'].forEach((h, i) => {
+                const cell = lHeaders.getCell(i + 1);
+                cell.value = h;
+                cell.font = headerFont;
+                cell.fill = headerFill;
+                cell.alignment = { horizontal: 'center' };
+                cell.border = thinBorder;
+            });
+
+            const sortedLocs = Object.entries(ubicacionData)
+                .filter(([, mins]) => mins > 0)
+                .sort((a, b) => b[1] - a[1]);
+            sortedLocs.forEach(([ub, mins], idx) => {
+                const pct = totalTrabajadas > 0 ? Math.round((mins / totalTrabajadas) * 100) : 0;
+                const row = wsL.getRow(4 + idx);
+                [ub, minutesToDisplay(mins), `${pct}%`].forEach((v, i) => {
+                    const cell = row.getCell(i + 1);
+                    cell.value = v;
+                    cell.border = thinBorder;
+                    cell.alignment = { horizontal: i === 0 ? 'left' : 'center' };
+                    if (idx % 2 === 1) cell.fill = zebraFill;
+                });
+            });
+
+            wsL.getColumn(1).width = 22;
+            wsL.getColumn(2).width = 12;
+            wsL.getColumn(3).width = 14;
+        }
+
+        // Download
+        const buffer = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buffer], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        saveAs(blob, `Reporte_${periodoLabel}.xlsx`);
+    }
+
+    async function downloadPDF() {
+        const { jsPDF } = await import('jspdf');
+        const autoTable = (await import('jspdf-autotable')).default;
+
+        const doc = new jsPDF({ orientation: 'landscape' });
+
+        // Title
+        doc.setFontSize(16);
+        doc.text(`Reporte de Horas - ${mesNombre} ${selectedYear}`, 14, 18);
+
+        // Summary
+        doc.setFontSize(10);
+        const summaryLines = [
+            `Días trabajados: ${diasTrabajados}`,
+            `Total horas: ${minutesToDisplay(totalTrabajadas)}`,
+            `Horas extras: ${minutesToDisplay(totalExtras)}`,
+            `Promedio diario: ${minutesToDisplay(Math.round(avgHorasPerDay))}`,
+        ];
+        if (salary) {
+            summaryLines.push(
+                `Estimado total: ${moneda} ${salary.totalEstimado.toLocaleString('es-ES')}`
+            );
+        }
+        doc.text(summaryLines, 14, 26);
+
+        // Table
+        const tableHead = [
+            [
+                'Fecha',
+                'Día',
+                'Entrada',
+                'Salida',
+                'Turno',
+                'Laboral',
+                'Extras',
+                'Ubicación',
+                'Turno 2',
+                'Obs.',
+            ],
+        ];
+        const tableBody = entries.map((e) => {
+            const fecha = new Date(e.fecha).toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+            });
+            return [
+                fecha,
+                e.dia,
+                e.entrada || '-',
+                e.salida || '-',
+                minutesToDisplay(e.horasTurno),
+                minutesToDisplay(e.horasLaborales),
+                minutesToDisplay(e.horasExtras),
+                e.ubicacion || '-',
+                e.horasTurno2 > 0 ? minutesToDisplay(e.horasTurno2) : '-',
+                e.observaciones || '-',
+            ];
+        });
+
+        autoTable(doc, {
+            head: tableHead,
+            body: tableBody,
+            startY: 26 + summaryLines.length * 5,
+            theme: 'grid',
+            headStyles: { fillColor: [59, 130, 246], fontSize: 8 },
+            bodyStyles: { fontSize: 7 },
+            styles: { cellPadding: 2 },
+        });
+
+        // Weekly summary on new page if data exists
+        if (Object.keys(weeklyData).length > 0) {
+            doc.addPage();
+            doc.setFontSize(14);
+            doc.text('Resumen por Semana', 14, 18);
+
+            autoTable(doc, {
+                head: [['Semana del', 'Días', 'Horas', 'Extras']],
+                body: Object.entries(weeklyData).map(([week, data]) => [
+                    week,
+                    data.dias.toString(),
+                    minutesToDisplay(data.horas),
+                    minutesToDisplay(data.extras),
+                ]),
+                startY: 24,
+                theme: 'grid',
+                headStyles: { fillColor: [59, 130, 246], fontSize: 9 },
+                bodyStyles: { fontSize: 8 },
+            });
+        }
+
+        doc.save(`Reporte_${periodoLabel}.pdf`);
+    }
 
     return (
         <div className="container mx-auto space-y-6 px-4 py-8">
@@ -172,7 +658,24 @@ export default function ReportesPage() {
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={loading || entries.length === 0}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Descargar
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={downloadExcel}>
+                                Descargar Excel (.xlsx)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={downloadPDF}>Descargar PDF</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                     <Select
                         value={selectedMonth.toString()}
                         onValueChange={(v) => setSelectedMonth(Number(v))}>
