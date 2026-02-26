@@ -112,10 +112,13 @@ export default function DashboardPage() {
         setDialogOpen(true);
     }, []);
 
-    const handleDelete = useCallback(async (id: string) => {
-        const res = await fetch(`/api/work-entries/${id}`, { method: 'DELETE' });
-        if (res.ok) fetchData();
-    }, [fetchData]);
+    const handleDelete = useCallback(
+        async (id: string) => {
+            const res = await fetch(`/api/work-entries/${id}`, { method: 'DELETE' });
+            if (res.ok) fetchData();
+        },
+        [fetchData]
+    );
 
     if (isPending) {
         return (
