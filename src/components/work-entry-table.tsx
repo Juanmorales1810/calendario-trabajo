@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { minutesToDisplay } from '@/lib/time-utils';
 import { Button } from '@/components/ui/button';
 import { Edit2, Trash2 } from 'lucide-react';
@@ -27,7 +28,12 @@ interface WorkEntryTableProps {
     onDelete: (id: string) => void;
 }
 
-export function WorkEntryTable({ entries, loading, onEdit, onDelete }: WorkEntryTableProps) {
+export const WorkEntryTable = memo(function WorkEntryTable({
+    entries,
+    loading,
+    onEdit,
+    onDelete,
+}: WorkEntryTableProps) {
     if (loading) {
         return (
             <div className="bg-card rounded-lg border p-8 text-center">
@@ -137,4 +143,4 @@ export function WorkEntryTable({ entries, loading, onEdit, onDelete }: WorkEntry
             </div>
         </div>
     );
-}
+});

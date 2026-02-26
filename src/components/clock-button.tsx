@@ -57,28 +57,31 @@ export function ClockButton({ onClockAction }: ClockButtonProps) {
         fetchStatus();
     }, [fetchStatus]);
 
-    const handleAction = async (action: string) => {
-        setLoading(true);
-        try {
-            const now = new Date();
-            const hh = now.getHours().toString().padStart(2, '0');
-            const mm = now.getMinutes().toString().padStart(2, '0');
-            const res = await fetch('/api/clock', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action, clientTime: `${hh}:${mm}` }),
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setState(data);
-                onClockAction?.();
+    const handleAction = useCallback(
+        async (action: string) => {
+            setLoading(true);
+            try {
+                const now = new Date();
+                const hh = now.getHours().toString().padStart(2, '0');
+                const mm = now.getMinutes().toString().padStart(2, '0');
+                const res = await fetch('/api/clock', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, clientTime: `${hh}:${mm}` }),
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setState(data);
+                    onClockAction?.();
+                }
+            } catch {
+                // silenced
+            } finally {
+                setLoading(false);
             }
-        } catch {
-            // silenced
-        } finally {
-            setLoading(false);
-        }
-    };
+        },
+        [onClockAction]
+    );
 
     const statusConfig: Record<
         ClockStatus,

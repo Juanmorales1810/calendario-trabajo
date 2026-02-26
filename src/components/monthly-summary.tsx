@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { minutesToDisplay, calculateSalaryEstimate } from '@/lib/time-utils';
 import { Clock, DollarSign, TrendingUp, Calendar } from 'lucide-react';
 
@@ -22,7 +23,10 @@ interface MonthlySummaryProps {
     settings: UserSettingsData | null;
 }
 
-export function MonthlySummary({ entries, settings }: MonthlySummaryProps) {
+export const MonthlySummary = memo(function MonthlySummary({
+    entries,
+    settings,
+}: MonthlySummaryProps) {
     const totalTurno1 = entries.reduce((sum, e) => sum + (e.horasTurno || 0), 0);
     const totalTurno2 = entries.reduce((sum, e) => sum + (e.horasTurno2 || 0), 0);
     const totalTrabajadas = totalTurno1 + totalTurno2;
@@ -126,4 +130,4 @@ export function MonthlySummary({ entries, settings }: MonthlySummaryProps) {
             )}
         </div>
     );
-}
+});
