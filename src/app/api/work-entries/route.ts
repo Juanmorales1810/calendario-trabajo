@@ -12,10 +12,8 @@ async function getUser() {
 }
 
 export async function GET(req: NextRequest) {
-    const user = await getUser();
+    const [user] = await Promise.all([getUser(), connectDB()]);
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-
-    await connectDB();
 
     const { searchParams } = new URL(req.url);
     const mes = searchParams.get('mes');
@@ -34,12 +32,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-    const user = await getUser();
+    const [user, , body] = await Promise.all([getUser(), connectDB(), req.json()]);
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-
-    await connectDB();
-
-    const body = await req.json();
     const entry = await WorkEntry.create({ ...body, userId: user.id });
     return NextResponse.json(entry, { status: 201 });
 }
