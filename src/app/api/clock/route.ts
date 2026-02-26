@@ -45,10 +45,8 @@ function calculateDayExtras(
 
 // GET: returns today's open entry (if any) so the UI knows the current state
 export async function GET() {
-    const user = await getUser();
+    const [user] = await Promise.all([getUser(), connectDB()]);
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-
-    await connectDB();
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -109,12 +107,13 @@ export async function GET() {
 
 // POST: toggle clock in/out
 export async function POST(req: NextRequest) {
-    const user = await getUser();
+    const [user, , body] = await Promise.all([
+        getUser(),
+        connectDB(),
+        req.json().catch(() => ({})),
+    ]);
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
-    await connectDB();
-
-    const body = await req.json().catch(() => ({}));
     const action = body.action as string;
     const clientTime = body.clientTime as string | undefined;
 
