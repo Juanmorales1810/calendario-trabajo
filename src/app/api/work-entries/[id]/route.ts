@@ -12,12 +12,8 @@ async function getUser() {
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    const user = await getUser();
+    const [user, , { id }, body] = await Promise.all([getUser(), connectDB(), params, req.json()]);
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-
-    await connectDB();
-    const { id } = await params;
-    const body = await req.json();
 
     const entry = await WorkEntry.findOneAndUpdate({ _id: id, userId: user.id }, body, {
         returnDocument: 'after',
@@ -28,11 +24,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    const user = await getUser();
+    const [user, , { id }] = await Promise.all([getUser(), connectDB(), params]);
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-
-    await connectDB();
-    const { id } = await params;
 
     const result = await WorkEntry.findOneAndDelete({ _id: id, userId: user.id });
     if (!result) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
