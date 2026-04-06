@@ -1,6 +1,6 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { minutesToDisplay, calculateSalaryEstimate } from '@/lib/time-utils';
 import { Clock, DollarSign, TrendingUp, Calendar } from 'lucide-react';
 
@@ -27,12 +27,38 @@ export const MonthlySummary = memo(function MonthlySummary({
     entries,
     settings,
 }: MonthlySummaryProps) {
-    const totalTurno1 = entries.reduce((sum, e) => sum + (e.horasTurno || 0), 0);
-    const totalTurno2 = entries.reduce((sum, e) => sum + (e.horasTurno2 || 0), 0);
-    const totalTrabajadas = totalTurno1 + totalTurno2;
-    const totalExtras = entries.reduce((sum, e) => sum + (e.horasExtras || 0), 0);
-    const totalLaborales = entries.reduce((sum, e) => sum + (e.horasLaborales || 0), 0);
-    const diasTrabajados = entries.filter((e) => e.horasTurno > 0 || e.horasTurno2 > 0).length;
+    // js-combine-iterations: single pass instead of 4 reduce + 1 filter
+    const {
+        totalTurno1,
+        totalTurno2,
+        totalTrabajadas,
+        totalExtras,
+        totalLaborales,
+        diasTrabajados,
+    } = useMemo(() => {
+        let t1 = 0,
+            t2 = 0,
+            extras = 0,
+            laborales = 0,
+            dias = 0;
+        for (const e of entries) {
+            const eT1 = e.horasTurno || 0;
+            const eT2 = e.horasTurno2 || 0;
+            t1 += eT1;
+            t2 += eT2;
+            extras += e.horasExtras || 0;
+            laborales += e.horasLaborales || 0;
+            if (eT1 > 0 || eT2 > 0) dias++;
+        }
+        return {
+            totalTurno1: t1,
+            totalTurno2: t2,
+            totalTrabajadas: t1 + t2,
+            totalExtras: extras,
+            totalLaborales: laborales,
+            diasTrabajados: dias,
+        };
+    }, [entries]);
 
     const salary =
         settings?.salarioMensual && settings.salarioMensual > 0

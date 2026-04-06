@@ -3,6 +3,32 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { LogIn, LogOut, Play, Square, Clock } from 'lucide-react';
+import { toast } from 'sonner';
+
+const IDB_DB = 'horaswork-sync';
+const IDB_STORE = 'pending-clock-actions';
+const SYNC_TAG = 'sync-clock-actions';
+
+function openSyncDB(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(IDB_DB, 1);
+        req.onupgradeneeded = (e) => {
+            (e.target as IDBOpenDBRequest).result.createObjectStore(IDB_STORE, { keyPath: 'id' });
+        };
+        req.onsuccess = (e) => resolve((e.target as IDBOpenDBRequest).result);
+        req.onerror = (e) => reject((e.target as IDBOpenDBRequest).error);
+    });
+}
+
+async function queueClockAction(action: string, clientTime: string): Promise<void> {
+    const db = await openSyncDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        const req = tx.objectStore(IDB_STORE).put({ id: Date.now(), action, clientTime });
+        req.onsuccess = () => resolve();
+        req.onerror = (e) => reject((e.target as IDBRequest).error);
+    });
+}
 
 type ClockStatus = 'idle' | 'clocked-in' | 'between-shifts' | 'clocked-in-2' | 'done';
 
@@ -57,17 +83,32 @@ export function ClockButton({ onClockAction }: ClockButtonProps) {
         fetchStatus();
     }, [fetchStatus]);
 
+    // Listen for background-sync completion messages from the service worker
+    useEffect(() => {
+        if (!('serviceWorker' in navigator)) return;
+        const handler = (event: MessageEvent) => {
+            if (event.data?.type === 'SYNC_COMPLETE') {
+                fetchStatus();
+                onClockAction?.();
+                toast.success('Fichaje sincronizado correctamente');
+            }
+        };
+        navigator.serviceWorker.addEventListener('message', handler);
+        return () => navigator.serviceWorker.removeEventListener('message', handler);
+    }, [fetchStatus, onClockAction]);
+
     const handleAction = useCallback(
         async (action: string) => {
             setLoading(true);
+            const now = new Date();
+            const hh = now.getHours().toString().padStart(2, '0');
+            const mm = now.getMinutes().toString().padStart(2, '0');
+            const clientTime = `${hh}:${mm}`;
             try {
-                const now = new Date();
-                const hh = now.getHours().toString().padStart(2, '0');
-                const mm = now.getMinutes().toString().padStart(2, '0');
                 const res = await fetch('/api/clock', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action, clientTime: `${hh}:${mm}` }),
+                    body: JSON.stringify({ action, clientTime }),
                 });
                 if (res.ok) {
                     const data = await res.json();
@@ -75,7 +116,25 @@ export function ClockButton({ onClockAction }: ClockButtonProps) {
                     onClockAction?.();
                 }
             } catch {
-                // silenced
+                // Network error — queue for background sync
+                try {
+                    await queueClockAction(action, clientTime);
+                    if ('serviceWorker' in navigator && 'SyncManager' in window) {
+                        const reg = await navigator.serviceWorker.ready;
+                        await (
+                            reg as ServiceWorkerRegistration & {
+                                sync: { register(tag: string): Promise<void> };
+                            }
+                        ).sync.register(SYNC_TAG);
+                        toast.info('Sin conexión. El fichaje se enviará en cuanto vuelva la red.');
+                    } else {
+                        toast.error(
+                            'Sin conexión y sincronización no disponible en este navegador.'
+                        );
+                    }
+                } catch {
+                    toast.error('Error al registrar el fichaje.');
+                }
             } finally {
                 setLoading(false);
             }
