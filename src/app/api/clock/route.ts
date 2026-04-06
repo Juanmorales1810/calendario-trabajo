@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth';
 import { connectDB } from '@/lib/db';
 import { WorkEntry } from '@/models/work-entry';
 import { UserSettings } from '@/models/user-settings';
+import { sendPushToUser } from '@/lib/push';
 import { headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -155,6 +156,10 @@ export async function POST(req: NextRequest) {
             horasExtras: 0,
             ubicacion: body.ubicacion || 'Oficina',
         });
+        sendPushToUser(user.id, {
+            title: 'Entrada registrada',
+            body: `Entrada registrada a las ${resolvedTime}. ¡Buen día!`,
+        }).catch(() => {});
         return NextResponse.json({
             status: 'clocked-in',
             entrada: resolvedTime,
@@ -175,6 +180,12 @@ export async function POST(req: NextRequest) {
         entry.horasTurno = turno1;
         entry.horasExtras = extras;
         await entry.save();
+        const horasTurnoH = Math.floor(turno1 / 60);
+        const horasTurnoM = turno1 % 60;
+        sendPushToUser(user.id, {
+            title: 'Salida registrada',
+            body: `Salida a las ${resolvedTime}. Trabajaste ${horasTurnoH}h ${horasTurnoM}m en el turno 1.`,
+        }).catch(() => {});
         return NextResponse.json({
             status: 'between-shifts',
             entrada: entry.entrada,
