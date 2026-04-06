@@ -93,36 +93,6 @@ export default function ReportesPage() {
         if (session) fetchData();
     }, [session, fetchData]);
 
-    if (isPending) {
-        return (
-            <div className="container mx-auto space-y-6 px-4 py-8">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-3">
-                        <Skeleton className="h-10 w-10 rounded-lg" />
-                        <div className="space-y-2">
-                            <Skeleton className="h-6 w-32" />
-                            <Skeleton className="h-4 w-64" />
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <Skeleton className="h-10 w-[150px]" />
-                        <Skeleton className="h-10 w-[100px]" />
-                    </div>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                        <Skeleton key={i} className="h-20 rounded-lg" />
-                    ))}
-                </div>
-                <Skeleton className="h-48 w-full rounded-lg" />
-                <Skeleton className="h-48 w-full rounded-lg" />
-                <Skeleton className="h-36 w-full rounded-lg" />
-            </div>
-        );
-    }
-
-    if (!session) return null;
-
     // Calculations — single pass over entries (js-combine-iterations + rerender-memo)
     const {
         totalTurno1,
@@ -175,6 +145,36 @@ export default function ReportesPage() {
             ubicacionData: ubicacion,
         };
     }, [entries]);
+
+    if (isPending) {
+        return (
+            <div className="container mx-auto space-y-6 px-4 py-8">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                        <Skeleton className="h-10 w-10 rounded-lg" />
+                        <div className="space-y-2">
+                            <Skeleton className="h-6 w-32" />
+                            <Skeleton className="h-4 w-64" />
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Skeleton className="h-10 w-[150px]" />
+                        <Skeleton className="h-10 w-[100px]" />
+                    </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <Skeleton key={i} className="h-20 rounded-lg" />
+                    ))}
+                </div>
+                <Skeleton className="h-48 w-full rounded-lg" />
+                <Skeleton className="h-48 w-full rounded-lg" />
+                <Skeleton className="h-36 w-full rounded-lg" />
+            </div>
+        );
+    }
+
+    if (!session) return null;
 
     const salary =
         settings?.salarioMensual && settings.salarioMensual > 0

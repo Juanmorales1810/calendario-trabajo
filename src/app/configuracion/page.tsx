@@ -20,6 +20,7 @@ import { Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PushNotificationManager } from '@/components/push-notification-manager';
 
 export default function ConfiguracionPage() {
     const { data: session, isPending } = useSession();
@@ -255,6 +256,15 @@ export default function ConfiguracionPage() {
                 <Button type="submit" className="w-full" disabled={saving}>
                     {saving ? 'Guardando...' : 'Guardar configuración'}
                 </Button>
+
+                {/* Push notifications */}
+                <div className="border-t pt-4">
+                    <h3 className="mb-3 text-sm font-medium">Notificaciones push</h3>
+                    <p className="text-muted-foreground mb-3 text-xs">
+                        Recibí una notificación cuando registres entradas o salidas.
+                    </p>
+                    <PushNotificationManager />
+                </div>
             </form>
         </div>
     );
