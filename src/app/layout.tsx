@@ -3,6 +3,7 @@ import { IBM_Plex_Sans } from 'next/font/google';
 import Navbar from '@/components/interfaces/navbar';
 import { Toaster } from '@/components/ui/sonner';
 import { ThemeProvider } from '@/components/theme-provider';
+import { ServiceWorkerRegister } from '@/components/service-worker-register';
 import '@/styles/globals.css';
 
 const ibmPlexSans = IBM_Plex_Sans({
@@ -32,7 +33,11 @@ export const metadata: Metadata = {
         apple: '/apple-icon.png',
         shortcut: '/icon1.png',
     },
-    manifest: '/manifest.json',
+    appleWebApp: {
+        capable: true,
+        statusBarStyle: 'default',
+        title: 'HorasWork',
+    },
     creator: 'Juan Morales',
     openGraph: {
         title: siteConfig.name,
@@ -76,6 +81,7 @@ export default function RootLayout({
                     <Navbar />
                     <main className="min-h-[calc(100vh-4rem)]">{children}</main>
                     <Toaster />
+                    <ServiceWorkerRegister />
                 </ThemeProvider>
             </body>
         </html>
