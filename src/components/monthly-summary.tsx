@@ -3,6 +3,7 @@
 import { memo, useMemo } from 'react';
 import { minutesToDisplay, calculateSalaryEstimate } from '@/lib/time-utils';
 import { Clock, DollarSign, TrendingUp, Calendar } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface WorkEntry {
     _id: string;
@@ -71,87 +72,75 @@ export const MonthlySummary = memo(function MonthlySummary({
             : null;
 
     const moneda = settings?.moneda || 'USD';
+    const fmt = (n: number) => n.toLocaleString('es-ES');
 
-    const cards = [
-        {
-            title: 'Días trabajados',
-            value: diasTrabajados.toString(),
-            icon: Calendar,
-            color: 'text-blue-600 dark:text-blue-400',
-            bg: 'bg-blue-100 dark:bg-blue-900/30',
-        },
-        {
-            title: 'Horas totales',
-            value: minutesToDisplay(totalTrabajadas),
-            icon: Clock,
-            color: 'text-green-600 dark:text-green-400',
-            bg: 'bg-green-100 dark:bg-green-900/30',
-        },
+    const stats = [
+        { title: 'Días trabajados', value: diasTrabajados.toString(), icon: Calendar },
+        { title: 'Horas totales', value: minutesToDisplay(totalTrabajadas), icon: Clock },
         {
             title: 'Horas extras',
             value: minutesToDisplay(totalExtras),
             icon: TrendingUp,
-            color: 'text-amber-600 dark:text-amber-400',
-            bg: 'bg-amber-100 dark:bg-amber-900/30',
+            emphasis: totalExtras > 0,
         },
     ];
 
-    if (salary) {
-        cards.push({
-            title: 'Estimado total',
-            value: `${moneda} ${salary.totalEstimado.toLocaleString('es-ES')}`,
-            icon: DollarSign,
-            color: 'text-emerald-600 dark:text-emerald-400',
-            bg: 'bg-emerald-100 dark:bg-emerald-900/30',
-        });
-    }
-
     return (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {cards.map((card) => (
-                <div key={card.title} className="bg-card rounded-lg border p-4">
-                    <div className="flex items-center gap-3">
-                        <div
-                            className={`flex h-10 w-10 items-center justify-center rounded-lg ${card.bg}`}>
-                            <card.icon className={`h-5 w-5 ${card.color}`} />
-                        </div>
+        <div className="flex flex-col gap-4">
+            {/* Time ledger strip */}
+            <div className="bg-card divide-border grid divide-y rounded-xl border shadow-xs sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+                {stats.map((stat) => (
+                    <div key={stat.title} className="flex items-center gap-3 px-5 py-4">
+                        <stat.icon className="text-muted-foreground h-4 w-4 shrink-0" />
                         <div>
-                            <p className="text-muted-foreground text-xs">{card.title}</p>
-                            <p className={`text-lg font-bold ${card.color}`}>{card.value}</p>
+                            <p className="text-muted-foreground text-[11px] tracking-wide uppercase">
+                                {stat.title}
+                            </p>
+                            <p
+                                className={cn(
+                                    'font-mono text-xl font-semibold tabular-nums',
+                                    stat.emphasis && 'text-primary'
+                                )}>
+                                {stat.value}
+                            </p>
                         </div>
                     </div>
-                </div>
-            ))}
+                ))}
+            </div>
 
+            {/* Salary receipt */}
             {salary && (
-                <div className="bg-card col-span-full rounded-lg border p-4">
-                    <h3 className="mb-3 text-sm font-medium">Desglose salarial estimado</h3>
-                    <div className="grid gap-2 text-sm sm:grid-cols-4">
-                        <div>
-                            <span className="text-muted-foreground">Salario/hora:</span>
-                            <span className="ml-2 font-medium">
-                                {moneda} {salary.salarioHora.toLocaleString('es-ES')}
-                            </span>
-                        </div>
-                        <div>
-                            <span className="text-muted-foreground">Salario/día:</span>
-                            <span className="ml-2 font-medium">
-                                {moneda} {salary.salarioDiario.toLocaleString('es-ES')}
-                            </span>
-                        </div>
-                        <div>
-                            <span className="text-muted-foreground">Base mes:</span>
-                            <span className="ml-2 font-medium">
-                                {moneda} {salary.salarioBase.toLocaleString('es-ES')}
-                            </span>
-                        </div>
-                        <div>
-                            <span className="text-muted-foreground">Pago extras:</span>
-                            <span className="ml-2 font-medium text-amber-600 dark:text-amber-400">
-                                {moneda} {salary.pagoExtras.toLocaleString('es-ES')}
-                            </span>
-                        </div>
+                <div className="bg-card rounded-xl border p-5 shadow-xs">
+                    <div className="mb-3 flex items-center gap-2">
+                        <DollarSign className="text-muted-foreground h-4 w-4" />
+                        <h3 className="text-sm font-medium">Desglose salarial estimado</h3>
                     </div>
+                    <dl className="space-y-2 text-sm">
+                        {[
+                            { label: 'Salario/hora', value: salary.salarioHora },
+                            { label: 'Salario/día', value: salary.salarioDiario },
+                            { label: 'Base mes', value: salary.salarioBase },
+                            { label: 'Pago extras', value: salary.pagoExtras },
+                        ].map((row) => (
+                            <div key={row.label} className="flex items-baseline gap-2">
+                                <dt className="text-muted-foreground shrink-0">{row.label}</dt>
+                                <span
+                                    aria-hidden
+                                    className="border-border mb-1 h-px flex-1 border-b border-dotted"
+                                />
+                                <dd className="font-mono font-medium tabular-nums">
+                                    {moneda} {fmt(row.value)}
+                                </dd>
+                            </div>
+                        ))}
+                        <div className="border-border flex items-baseline gap-2 border-t pt-2">
+                            <dt className="font-medium">Total estimado</dt>
+                            <span aria-hidden className="h-px flex-1" />
+                            <dd className="text-primary font-mono text-lg font-bold tabular-nums">
+                                {moneda} {fmt(salary.totalEstimado)}
+                            </dd>
+                        </div>
+                    </dl>
                 </div>
             )}
         </div>

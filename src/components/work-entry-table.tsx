@@ -3,6 +3,14 @@
 import { memo } from 'react';
 import { minutesToDisplay } from '@/lib/time-utils';
 import { Button } from '@/components/ui/button';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { Edit2, Trash2 } from 'lucide-react';
 
 interface WorkEntry {
@@ -55,92 +63,96 @@ export const WorkEntryTable = memo(function WorkEntryTable({
 
     return (
         <div className="bg-card overflow-hidden rounded-lg border">
-            <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className="bg-muted/50 border-b">
-                            <th className="px-4 py-3 text-left font-medium">Fecha</th>
-                            <th className="px-4 py-3 text-left font-medium">Día</th>
-                            <th className="px-4 py-3 text-left font-medium">Entrada</th>
-                            <th className="px-4 py-3 text-left font-medium">Salida</th>
-                            <th className="px-4 py-3 text-left font-medium">Turno</th>
-                            <th className="px-4 py-3 text-left font-medium">Laboral</th>
-                            <th className="px-4 py-3 text-left font-medium">Extras</th>
-                            <th className="px-4 py-3 text-left font-medium">Ubicación</th>
-                            <th className="px-4 py-3 text-left font-medium">Turno 2</th>
-                            <th className="px-4 py-3 text-left font-medium">Obs.</th>
-                            <th className="px-4 py-3 text-right font-medium">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {entries.map((entry) => {
-                            const fecha = new Date(entry.fecha);
-                            const isWeekend = fecha.getDay() === 0 || fecha.getDay() === 6;
+            <Table>
+                <TableHeader>
+                    <TableRow className="bg-muted/50">
+                        <TableHead className="px-4 py-3">Fecha</TableHead>
+                        <TableHead className="px-4 py-3">Día</TableHead>
+                        <TableHead className="px-4 py-3">Entrada</TableHead>
+                        <TableHead className="px-4 py-3">Salida</TableHead>
+                        <TableHead className="px-4 py-3">Turno</TableHead>
+                        {/* <TableHead className="px-4 py-3">Laboral</TableHead> */}
+                        <TableHead className="px-4 py-3">Extras</TableHead>
+                        {/* <TableHead className="px-4 py-3">Ubicación</TableHead> */}
+                        <TableHead className="px-4 py-3">Turno 2</TableHead>
+                        {/* <TableHead className="px-4 py-3">Obs.</TableHead> */}
+                        <TableHead className="px-4 py-3 text-right">Acciones</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {entries.map((entry) => {
+                        const fecha = new Date(entry.fecha);
+                        const isWeekend = fecha.getDay() === 0 || fecha.getDay() === 6;
 
-                            return (
-                                <tr
-                                    key={entry._id}
-                                    className={`border-b last:border-b-0 ${
-                                        isWeekend ? 'bg-muted/30' : ''
-                                    } ${entry.horasExtras > 0 ? 'border-l-2 border-l-amber-500' : ''}`}>
-                                    <td className="px-4 py-2.5">
-                                        {fecha.toLocaleDateString('es-ES', {
-                                            day: '2-digit',
-                                            month: '2-digit',
-                                        })}
-                                    </td>
-                                    <td className="px-4 py-2.5 capitalize">{entry.dia}</td>
-                                    <td className="px-4 py-2.5">{entry.entrada || '-'}</td>
-                                    <td className="px-4 py-2.5">{entry.salida || '-'}</td>
-                                    <td className="px-4 py-2.5">
-                                        {minutesToDisplay(entry.horasTurno)}
-                                    </td>
-                                    <td className="px-4 py-2.5">
-                                        {minutesToDisplay(entry.horasLaborales)}
-                                    </td>
-                                    <td className="px-4 py-2.5">
-                                        <span
-                                            className={
-                                                entry.horasExtras > 0
-                                                    ? 'font-medium text-amber-600 dark:text-amber-400'
-                                                    : 'text-muted-foreground'
-                                            }>
-                                            {minutesToDisplay(entry.horasExtras)}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-2.5">{entry.ubicacion || '-'}</td>
-                                    <td className="px-4 py-2.5">
-                                        {entry.horasTurno2 > 0
-                                            ? minutesToDisplay(entry.horasTurno2)
-                                            : '-'}
-                                    </td>
-                                    <td className="text-muted-foreground max-w-[120px] truncate px-4 py-2.5">
-                                        {entry.observaciones || '-'}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-right">
-                                        <div className="flex justify-end gap-1">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-7 w-7"
-                                                onClick={() => onEdit(entry)}>
-                                                <Edit2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-destructive hover:text-destructive h-7 w-7"
-                                                onClick={() => onDelete(entry._id)}>
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+                        return (
+                            <TableRow
+                                key={entry._id}
+                                className={`${isWeekend ? 'bg-muted/30' : ''} ${
+                                    entry.horasExtras > 0 ? 'border-l-2 border-l-amber-500' : ''
+                                }`}>
+                                <TableCell className="px-4 py-2.5">
+                                    {fecha.toLocaleDateString('es-ES', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                    })}
+                                </TableCell>
+                                <TableCell className="px-4 py-2.5 capitalize">
+                                    {entry.dia}
+                                </TableCell>
+                                <TableCell className="px-4 py-2.5">
+                                    {entry.entrada || '-'}
+                                </TableCell>
+                                <TableCell className="px-4 py-2.5">{entry.salida || '-'}</TableCell>
+                                <TableCell className="px-4 py-2.5">
+                                    {minutesToDisplay(entry.horasTurno)}
+                                </TableCell>
+                                {/* <TableCell className="px-4 py-2.5">
+                                    {minutesToDisplay(entry.horasLaborales)}
+                                </TableCell> */}
+                                <TableCell className="px-4 py-2.5">
+                                    <span
+                                        className={
+                                            entry.horasExtras > 0
+                                                ? 'font-medium text-amber-600 dark:text-amber-400'
+                                                : 'text-muted-foreground'
+                                        }>
+                                        {minutesToDisplay(entry.horasExtras)}
+                                    </span>
+                                </TableCell>
+                                {/* <TableCell className="px-4 py-2.5">
+                                    {entry.ubicacion || '-'}
+                                </TableCell> */}
+                                <TableCell className="px-4 py-2.5">
+                                    {entry.horasTurno2 > 0
+                                        ? minutesToDisplay(entry.horasTurno2)
+                                        : '-'}
+                                </TableCell>
+                                {/* <TableCell className="text-muted-foreground max-w-[120px] truncate px-4 py-2.5">
+                                    {entry.observaciones || '-'}
+                                </TableCell> */}
+                                <TableCell className="px-4 py-2.5 text-right">
+                                    <div className="flex justify-end gap-1">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={() => onEdit(entry)}>
+                                            <Edit2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="text-destructive hover:text-destructive h-7 w-7"
+                                            onClick={() => onDelete(entry._id)}>
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        );
+                    })}
+                </TableBody>
+            </Table>
         </div>
     );
 });

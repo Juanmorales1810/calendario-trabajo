@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import { Button } from '@/components/ui/button';
 import { LogIn, LogOut, Play, Square, Clock } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 const IDB_DB = 'horaswork-sync';
 const IDB_STORE = 'pending-clock-actions';
@@ -170,9 +171,9 @@ export function ClockButton({ onClockAction }: ClockButtonProps) {
             variant: 'destructive',
         },
         'between-shifts': {
-            label: `Turno 1: ${state.entrada} - ${state.salida}`,
+            label: 'Día completo',
             action: 'clock-in-2',
-            actionLabel: 'Entrada turno 2',
+            actionLabel: 'Agregar turno 2',
             icon: Play,
             variant: 'secondary',
         },
@@ -194,57 +195,123 @@ export function ClockButton({ onClockAction }: ClockButtonProps) {
 
     const config = statusConfig[state.status];
     const Icon = config.icon;
+    const isRunning = state.status === 'clocked-in' || state.status === 'clocked-in-2';
+    const [hh = '--', mm = '--'] = currentTime.split(':');
+
+    // Punch card: the day's four possible stamps, in order
+    const steps = [
+        { label: 'E1', value: state.entrada },
+        { label: 'S1', value: state.salida },
+        { label: 'E2', value: state.entrada2 },
+        { label: 'S2', value: state.salida2 },
+    ] as const;
 
     return (
-        <div className="bg-card flex flex-col items-center gap-4 rounded-lg border p-5 sm:flex-row sm:justify-between">
-            <div className="flex items-center gap-4">
-                {/* Live clock */}
-                <div className="bg-primary/10 flex h-14 w-14 items-center justify-center rounded-full">
-                    <span className="text-primary text-lg font-bold tabular-nums">
-                        {currentTime.slice(0, 5)}
-                    </span>
+        <div className="bg-card flex flex-col gap-4 rounded-xl border p-5 shadow-xs">
+            <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+                <div className="flex items-center gap-4">
+                    {/* Live clock — LCD-style display */}
+                    <div
+                        className={cn(
+                            'bg-foreground/[0.03] flex h-14 items-center justify-center rounded-md border px-3 dark:bg-black/40',
+                            isRunning && 'border-primary/40 motion-safe:animate-pulse'
+                        )}>
+                        <span className="text-primary font-mono text-2xl font-semibold tracking-wider tabular-nums">
+                            {hh}
+                            <span className="motion-safe:animate-pulse">:</span>
+                            {mm}
+                        </span>
+                    </div>
+
+                    <div>
+                        <p className="text-muted-foreground text-xs tracking-wide uppercase">
+                            Fichaje del día
+                        </p>
+                        <p className="text-sm font-medium">{config.label}</p>
+                        {state.status === 'done' && (
+                            <p className="text-muted-foreground text-xs">
+                                {state.entrada} - {state.salida}
+                                {state.entrada2 && ` | ${state.entrada2} - ${state.salida2}`}
+                            </p>
+                        )}
+                        {state.status === 'between-shifts' && (
+                            <p className="text-muted-foreground text-xs">
+                                {state.entrada} - {state.salida} · turno 2 opcional
+                            </p>
+                        )}
+                        {state.status === 'clocked-in' && (
+                            <p className="text-muted-foreground text-xs">
+                                Trabajando desde las {state.entrada}...
+                            </p>
+                        )}
+                        {state.status === 'clocked-in-2' && (
+                            <p className="text-muted-foreground text-xs">
+                                Turno 1: {state.entrada} - {state.salida}
+                            </p>
+                        )}
+                    </div>
                 </div>
 
-                <div>
-                    <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                        Fichaje del día
-                    </p>
-                    <p className="text-sm font-medium">{config.label}</p>
-                    {state.status === 'done' && (
-                        <p className="text-muted-foreground text-xs">
-                            {state.entrada} - {state.salida}
-                            {state.entrada2 && ` | ${state.entrada2} - ${state.salida2}`}
-                        </p>
-                    )}
-                    {state.status === 'between-shifts' && (
-                        <p className="text-muted-foreground text-xs">
-                            Puedes iniciar un segundo turno
-                        </p>
-                    )}
-                    {state.status === 'clocked-in' && (
-                        <p className="text-muted-foreground text-xs">
-                            Trabajando desde las {state.entrada}...
-                        </p>
-                    )}
-                    {state.status === 'clocked-in-2' && (
-                        <p className="text-muted-foreground text-xs">
-                            Turno 1: {state.entrada} - {state.salida}
-                        </p>
-                    )}
-                </div>
+                {state.status === 'idle' ||
+                state.status === 'clocked-in' ||
+                state.status === 'clocked-in-2' ? (
+                    <Button
+                        onClick={() => handleAction(config.action)}
+                        disabled={loading}
+                        variant={config.variant}
+                        size="lg"
+                        className="w-full min-w-[180px] sm:w-auto">
+                        <Icon className="mr-2 h-4 w-4" />
+                        {loading ? 'Procesando...' : config.actionLabel}
+                    </Button>
+                ) : (
+                    <div className="flex flex-col items-center gap-1.5 sm:items-end">
+                        <div className="border-primary/50 text-primary flex -rotate-6 items-center gap-1.5 rounded-md border-2 border-dashed px-3 py-1.5 text-xs font-bold tracking-widest uppercase">
+                            <Clock className="h-3.5 w-3.5" />
+                            Completo
+                        </div>
+                        {state.status === 'between-shifts' && (
+                            <Button
+                                onClick={() => handleAction(config.action)}
+                                disabled={loading}
+                                variant="ghost"
+                                size="sm"
+                                className="text-muted-foreground hover:text-foreground">
+                                <Icon className="mr-1.5 h-3.5 w-3.5" />
+                                {loading ? 'Procesando...' : config.actionLabel}
+                            </Button>
+                        )}
+                    </div>
+                )}
             </div>
 
-            {state.status !== 'done' && (
-                <Button
-                    onClick={() => handleAction(config.action)}
-                    disabled={loading}
-                    variant={config.variant}
-                    size="lg"
-                    className="min-w-[180px]">
-                    <Icon className="mr-2 h-4 w-4" />
-                    {loading ? 'Procesando...' : config.actionLabel}
-                </Button>
-            )}
+            {/* Punch card row — one stamp per clock event of the day */}
+            <div className="flex items-center gap-1.5">
+                {steps.map((step, i) => (
+                    <Fragment key={step.label}>
+                        {i > 0 && (
+                            <div
+                                className={cn(
+                                    'h-px flex-1',
+                                    steps[i - 1].value ? 'bg-primary/40' : 'bg-border'
+                                )}
+                            />
+                        )}
+                        <div
+                            title={
+                                step.value ? `${step.label}: ${step.value}` : `${step.label}: pendiente`
+                            }
+                            className={cn(
+                                'flex h-6 min-w-11 items-center justify-center rounded-full border px-1.5 font-mono text-[10px] font-medium tabular-nums',
+                                step.value
+                                    ? 'border-primary/40 bg-primary/10 text-primary'
+                                    : 'border-border text-muted-foreground border-dashed'
+                            )}>
+                            {step.value || '··:··'}
+                        </div>
+                    </Fragment>
+                ))}
+            </div>
         </div>
     );
 }
