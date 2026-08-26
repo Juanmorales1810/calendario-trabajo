@@ -1,10 +1,15 @@
 import type { Metadata, Viewport } from 'next';
-import { IBM_Plex_Sans } from 'next/font/google';
+import { IBM_Plex_Sans, JetBrains_Mono, Oxanium } from 'next/font/google';
 import Navbar from '@/components/interfaces/navbar';
 import { Toaster } from '@/components/ui/sonner';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ServiceWorkerRegister } from '@/components/service-worker-register';
 import '@/styles/globals.css';
+import { cn } from "@/lib/utils";
+
+const oxaniumHeading = Oxanium({subsets:['latin'],variable:'--font-heading'});
+
+const jetbrainsMono = JetBrains_Mono({subsets:['latin'],variable:'--font-mono'});
 
 const ibmPlexSans = IBM_Plex_Sans({
     variable: '--font-ibm-plex-sans',
@@ -71,7 +76,7 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <html lang="es" suppressHydrationWarning>
+        <html lang="es" suppressHydrationWarning className={cn("font-mono", jetbrainsMono.variable, oxaniumHeading.variable)}>
             <body className={`${ibmPlexSans.variable} font-mono antialiased`}>
                 <ThemeProvider
                     attribute="class"
