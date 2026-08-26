@@ -5,8 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { minutesToDisplay, calculateSalaryEstimate } from '@/lib/time-utils';
 import { BarChart3, Clock, TrendingUp, DollarSign, Download } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, XAxis, Pie, PieChart, Cell, Label as RechartsLabel } from 'recharts';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import {
+    ChartConfig,
+    ChartContainer,
+    ChartTooltip,
+    ChartTooltipContent,
+} from '@/components/ui/chart';
 import {
     Select,
     SelectContent,
@@ -20,6 +27,11 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+
+const weeklyChartConfig = {
+    regular: { label: 'Horas regulares', theme: { light: '#2563eb', dark: '#60a5fa' } },
+    extra: { label: 'Horas extras', theme: { light: '#d97706', dark: '#fbbf24' } },
+} satisfies ChartConfig;
 
 interface WorkEntry {
     _id: string;
@@ -145,6 +157,32 @@ export default function ReportesPage() {
             ubicacionData: ubicacion,
         };
     }, [entries]);
+
+    const weeklyChartData = useMemo(
+        () =>
+            Object.entries(weeklyData).map(([week, d]) => ({
+                week,
+                regular: Math.round(((d.horas - d.extras) / 60) * 10) / 10,
+                extra: Math.round((d.extras / 60) * 10) / 10,
+            })),
+        [weeklyData]
+    );
+
+    const { locationChartData, locationConfig } = useMemo(() => {
+        const sorted = Object.entries(ubicacionData)
+            .filter(([, mins]) => mins > 0)
+            .sort((a, b) => b[1] - a[1]);
+        const data = sorted.map(([name, mins], i) => ({
+            name,
+            horas: Math.round((mins / 60) * 10) / 10,
+            fill: `var(--chart-${(i % 5) + 1})`,
+        }));
+        const config: ChartConfig = { horas: { label: 'Horas' } };
+        sorted.forEach(([name], i) => {
+            config[name] = { label: name, color: `var(--chart-${(i % 5) + 1})` };
+        });
+        return { locationChartData: data, locationConfig: config };
+    }, [ubicacionData]);
 
     if (isPending) {
         return (
@@ -825,7 +863,46 @@ export default function ReportesPage() {
                     <div className="bg-card rounded-lg border p-6">
                         <h2 className="mb-4 text-lg font-medium">Resumen por semana</h2>
                         {Object.keys(weeklyData).length > 0 ? (
-                            <div className="overflow-x-auto">
+                            <div className="space-y-6">
+                                <ChartContainer
+                                    config={weeklyChartConfig}
+                                    className="aspect-auto h-[220px] w-full">
+                                    <BarChart data={weeklyChartData}>
+                                        <CartesianGrid vertical={false} />
+                                        <XAxis
+                                            dataKey="week"
+                                            tickLine={false}
+                                            axisLine={false}
+                                            tickMargin={8}
+                                        />
+                                        <ChartTooltip
+                                            content={
+                                                <ChartTooltipContent
+                                                    labelFormatter={(v) => `Semana del ${v}`}
+                                                    formatter={(value, name) => [
+                                                        ` ${value} h`,
+                                                        weeklyChartConfig[
+                                                            name as keyof typeof weeklyChartConfig
+                                                        ]?.label ?? name,
+                                                    ]}
+                                                />
+                                            }
+                                        />
+                                        <Bar
+                                            dataKey="regular"
+                                            stackId="horas"
+                                            fill="var(--color-regular)"
+                                            radius={[0, 0, 4, 4]}
+                                        />
+                                        <Bar
+                                            dataKey="extra"
+                                            stackId="horas"
+                                            fill="var(--color-extra)"
+                                            radius={[4, 4, 0, 0]}
+                                        />
+                                    </BarChart>
+                                </ChartContainer>
+                                <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className="bg-muted/50 border-b">
@@ -865,6 +942,7 @@ export default function ReportesPage() {
                                         ))}
                                     </tbody>
                                 </table>
+                                </div>
                             </div>
                         ) : (
                             <p className="text-muted-foreground text-sm">
@@ -876,34 +954,97 @@ export default function ReportesPage() {
                     {/* Location breakdown */}
                     <div className="bg-card rounded-lg border p-6">
                         <h2 className="mb-4 text-lg font-medium">Horas por ubicación</h2>
-                        {Object.keys(ubicacionData).length > 0 ? (
-                            <div className="space-y-3">
-                                {Object.entries(ubicacionData)
-                                    .filter(([_, mins]) => mins > 0)
-                                    .sort((a, b) => b[1] - a[1])
-                                    .map(([ubicacion, mins]) => {
-                                        const pct =
-                                            totalTrabajadas > 0
-                                                ? (mins / totalTrabajadas) * 100
-                                                : 0;
-                                        return (
-                                            <div key={ubicacion}>
-                                                <div className="mb-1 flex justify-between text-sm">
-                                                    <span>{ubicacion}</span>
+                        {locationChartData.length > 0 ? (
+                            <div className="flex flex-col items-center gap-6 sm:flex-row">
+                                <ChartContainer
+                                    config={locationConfig}
+                                    className="aspect-square h-[200px] w-full max-w-[200px] shrink-0">
+                                    <PieChart>
+                                        <ChartTooltip
+                                            content={
+                                                <ChartTooltipContent
+                                                    hideLabel
+                                                    formatter={(value, name) => [
+                                                        ` ${value} h`,
+                                                        name,
+                                                    ]}
+                                                />
+                                            }
+                                        />
+                                        <Pie
+                                            data={locationChartData}
+                                            dataKey="horas"
+                                            nameKey="name"
+                                            innerRadius={55}
+                                            outerRadius={80}
+                                            strokeWidth={2}>
+                                            {locationChartData.map((entry) => (
+                                                <Cell key={entry.name} fill={entry.fill} />
+                                            ))}
+                                            <RechartsLabel
+                                                content={({ viewBox }) => {
+                                                    if (
+                                                        !viewBox ||
+                                                        !('cx' in viewBox) ||
+                                                        viewBox.cx == null ||
+                                                        viewBox.cy == null
+                                                    )
+                                                        return null;
+                                                    return (
+                                                        <text
+                                                            x={viewBox.cx}
+                                                            y={viewBox.cy}
+                                                            textAnchor="middle"
+                                                            dominantBaseline="middle">
+                                                            <tspan
+                                                                x={viewBox.cx}
+                                                                y={viewBox.cy}
+                                                                className="fill-foreground text-lg font-bold">
+                                                                {minutesToDisplay(totalTrabajadas)}
+                                                            </tspan>
+                                                            <tspan
+                                                                x={viewBox.cx}
+                                                                y={(viewBox.cy ?? 0) + 18}
+                                                                className="fill-muted-foreground text-xs">
+                                                                total
+                                                            </tspan>
+                                                        </text>
+                                                    );
+                                                }}
+                                            />
+                                        </Pie>
+                                    </PieChart>
+                                </ChartContainer>
+                                <div className="w-full space-y-2">
+                                    {Object.entries(ubicacionData)
+                                        .filter(([, mins]) => mins > 0)
+                                        .sort((a, b) => b[1] - a[1])
+                                        .map(([ubicacion, mins], i) => {
+                                            const pct =
+                                                totalTrabajadas > 0
+                                                    ? (mins / totalTrabajadas) * 100
+                                                    : 0;
+                                            return (
+                                                <div
+                                                    key={ubicacion}
+                                                    className="flex items-center justify-between text-sm">
+                                                    <span className="flex items-center gap-2">
+                                                        <span
+                                                            className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                                                            style={{
+                                                                backgroundColor: `var(--chart-${(i % 5) + 1})`,
+                                                            }}
+                                                        />
+                                                        {ubicacion}
+                                                    </span>
                                                     <span className="text-muted-foreground">
                                                         {minutesToDisplay(mins)} ({Math.round(pct)}
                                                         %)
                                                     </span>
                                                 </div>
-                                                <div className="bg-muted h-2 overflow-hidden rounded-full">
-                                                    <div
-                                                        className="bg-primary h-full rounded-full transition-all"
-                                                        style={{ width: `${pct}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                </div>
                             </div>
                         ) : (
                             <p className="text-muted-foreground text-sm">
